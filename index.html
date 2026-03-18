@@ -2,7 +2,7 @@
 <html>
 <head>
 <meta charset="UTF-8">
-<title>Scan Pro</title>
+<title>Scan Pro Final</title>
 
 <script src="https://unpkg.com/html5-qrcode"></script>
 
@@ -10,89 +10,119 @@
 body {
   margin:0;
   font-family: Arial;
-  background:#f5f5f5;
+  background:#f2f2f2;
 }
 
-/* SP cực to */
-.sp-box {
-  width:100%;
+/* khung rõ ràng */
+.box {
+  border:2px solid #ddd;
+  margin:8px;
+  border-radius:12px;
   background:#fff;
+}
+
+/* SP nổi bật */
+.sp-box {
   padding:20px;
   text-align:center;
-  font-size:32px;
+  font-size:30px;
   font-weight:bold;
   color:#007bff;
+  border:2px solid #007bff;
 }
 
 /* giá + nút */
 .price-row {
   display:flex;
-  width:100%;
+  gap:8px;
+  padding:10px;
 }
 
 .price-row input {
   flex:1;
-  font-size:28px;
-  padding:20px;
-  border:none;
+  font-size:26px;
+  padding:15px;
+  border:2px solid #ccc;
+  border-radius:10px;
 }
 
 .price-row button {
-  width:40%;
-  font-size:26px;
+  width:35%;
+  font-size:22px;
+  border:none;
+  border-radius:10px;
   background:#28a745;
   color:white;
-  border:none;
+  border:2px solid #1e7e34;
 }
 
-/* nút scan cực to */
+/* nút scan */
 .scan-btn {
-  width:100%;
-  font-size:32px;
-  padding:25px;
+  width:calc(100% - 16px);
+  margin:8px;
+  padding:22px;
+  font-size:28px;
   background:#007bff;
   color:white;
   border:none;
+  border-radius:12px;
+  border:2px solid #0056b3;
 }
 
-/* camera */
+/* camera vừa phải - vuông */
 #reader {
-  width:100%;
+  width:300px;
+  height:300px;
+  margin:10px auto;
   display:none;
+  border:3px solid #333;
+  border-radius:12px;
 }
 
-/* list to */
+/* danh sách */
 .list {
-  font-size:20px;
-  padding:10px;
+  margin:8px;
+  border:2px solid #ddd;
+  border-radius:12px;
+  background:#fff;
+  max-height:250px;
+  overflow:auto;
 }
 
 .item {
-  padding:15px;
-  border-bottom:1px solid #ddd;
+  padding:12px;
+  border-bottom:1px solid #eee;
+  font-size:16px;
 }
 
-.time {
-  font-size:14px;
-  color:#777;
+.item:active {
+  background:#ffecec;
+}
+
+.status {
+  text-align:center;
+  font-size:16px;
+  padding:5px;
 }
 </style>
 </head>
 
 <body>
 
-<div class="sp-box">
+<div class="box sp-box">
   SP: <span id="sp">---</span>
 </div>
 
-<div class="price-row">
+<div class="box price-row">
   <input id="price" placeholder="NHẬP GIÁ">
   <button onclick="confirmPrice()">✔ OK</button>
 </div>
 
-<button class="scan-btn" onclick="startScan()">📷 QUÉT NGAY</button>
+<button class="scan-btn" onclick="startScan()">📷 QUÉT</button>
 
 <div id="reader"></div>
+
+<div class="status" id="status">Sẵn sàng</div>
 
 <div class="list" id="list"></div>
 
@@ -112,7 +142,7 @@ function render() {
   dataList.forEach((i, idx) => {
     html += `<div class="item" onclick="removeItem(${idx})">
       ${idx+1}. ${i.sp} | ${i.phone} | ${i.price}
-      <br><span class="time">${i.time}</span>
+      <br><small>${i.time}</small>
     </div>`;
   });
   document.getElementById("list").innerHTML = html;
@@ -125,12 +155,12 @@ function removeItem(i) {
 }
 
 function confirmPrice() {
-  if (!document.getElementById("price").value) {
-    alert("Nhập giá!");
+  if (!price.value) {
+    status.innerText = "❌ Nhập giá trước";
     return;
   }
   priceOK = true;
-  alert("OK giá");
+  status.innerText = "✅ Đã OK giá";
 }
 
 function timeNow() {
@@ -139,7 +169,7 @@ function timeNow() {
 
 function toggleItem(phone) {
   if (!priceOK) {
-    alert("Chưa OK giá!");
+    status.innerText = "❌ Chưa OK giá";
     return;
   }
 
@@ -147,13 +177,15 @@ function toggleItem(phone) {
 
   if (index !== -1) {
     dataList.splice(index,1);
+    status.innerText = "🗑 Đã xóa";
   } else {
     dataList.push({
       sp: currentSP,
       phone: phone,
-      price: document.getElementById("price").value,
+      price: price.value,
       time: timeNow()
     });
+    status.innerText = "✅ Đã thêm";
   }
 
   save();
@@ -163,30 +195,47 @@ function toggleItem(phone) {
 function onScanSuccess(text) {
   if (text === lastScan) return;
   lastScan = text;
-  setTimeout(() => lastScan = "", 300);
+  setTimeout(() => lastScan = "", 200);
 
   if (isNaN(text)) {
     currentSP = text;
-    document.getElementById("sp").innerText = text;
+    sp.innerText = text;
     priceOK = false;
+    status.innerText = "📦 SP mới";
   } else {
-    if (!currentSP) return;
+    if (!currentSP) {
+      status.innerText = "❌ Chưa có SP";
+      return;
+    }
     toggleItem(text);
   }
 }
 
 function startScan() {
-  document.getElementById("reader").style.display = "block";
+  reader.style.display = "block";
+  status.innerText = "📷 Đang mở camera...";
 
   Html5Qrcode.getCameras().then(devices => {
-    let backCam = devices.find(d => d.label.toLowerCase().includes("back")) || devices[0];
+    let backCam = devices.find(d =>
+      d.label.toLowerCase().includes("back") ||
+      d.label.toLowerCase().includes("rear")
+    ) || devices[0];
 
     scanner = new Html5Qrcode("reader");
 
-    scanner.start(backCam.id, {
-      fps: 20,
-      qrbox: 200
-    }, onScanSuccess);
+    scanner.start(
+      backCam.id,
+      {
+        fps: 25,              // MAX tốc độ
+        qrbox: { width: 220, height: 220 }, // vùng scan to hơn
+        aspectRatio: 1        // vuông
+      },
+      onScanSuccess
+    );
+
+    status.innerText = "📷 Đang quét...";
+  }).catch(err => {
+    status.innerText = "❌ Không mở được camera";
   });
 }
 
