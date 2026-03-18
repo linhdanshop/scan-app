@@ -8,91 +8,73 @@
 
 <style>
 body {
+  margin:0;
   font-family: Arial;
-  padding: 10px;
   background:#f5f5f5;
 }
 
-/* SP nổi bật */
+/* SP cực to */
 .sp-box {
-  background: #fff;
-  padding: 15px;
-  border-radius: 10px;
-  font-size: 22px;
-  font-weight: bold;
-  color: #007bff;
-  text-align: center;
-  margin-bottom: 10px;
+  width:100%;
+  background:#fff;
+  padding:20px;
+  text-align:center;
+  font-size:32px;
+  font-weight:bold;
+  color:#007bff;
 }
 
-/* Giá + nút */
+/* giá + nút */
 .price-row {
-  display: flex;
-  gap: 10px;
-  margin-bottom: 10px;
+  display:flex;
+  width:100%;
 }
 
 .price-row input {
-  flex: 1;
-  padding: 15px;
-  font-size: 20px;
-  border-radius: 10px;
-  border: 1px solid #ccc;
+  flex:1;
+  font-size:28px;
+  padding:20px;
+  border:none;
 }
 
 .price-row button {
-  width: 140px;
-  font-size: 18px;
-  border-radius: 10px;
-  border: none;
-  background: #28a745;
-  color: white;
+  width:40%;
+  font-size:26px;
+  background:#28a745;
+  color:white;
+  border:none;
 }
 
-.price-row button:active {
-  background:#1e7e34;
-}
-
-/* Nút scan */
+/* nút scan cực to */
 .scan-btn {
-  width: 100%;
-  padding: 18px;
-  font-size: 20px;
+  width:100%;
+  font-size:32px;
+  padding:25px;
   background:#007bff;
   color:white;
   border:none;
-  border-radius:10px;
-  margin-bottom:10px;
 }
 
 /* camera */
 #reader {
-  width: 100%;
-  max-width: 400px;
+  width:100%;
   display:none;
-  margin-bottom:10px;
 }
 
-/* danh sách */
+/* list to */
 .list {
-  background:#fff;
-  border-radius:10px;
+  font-size:20px;
   padding:10px;
 }
 
 .item {
-  padding:10px;
-  border-bottom:1px solid #eee;
-  font-size:15px;
-}
-
-.item:active {
-  background:#ffecec;
+  padding:15px;
+  border-bottom:1px solid #ddd;
 }
 
 .time {
-  font-size:12px;
-  color:#888;
+  font-size:14px;
+  color:#777;
 }
 </style>
 </head>
@@ -104,11 +86,11 @@ body {
 </div>
 
 <div class="price-row">
-  <input id="price" placeholder="Nhập giá">
+  <input id="price" placeholder="NHẬP GIÁ">
   <button onclick="confirmPrice()">✔ OK</button>
 </div>
 
-<button class="scan-btn" onclick="startScan()">📷 QUÉT</button>
+<button class="scan-btn" onclick="startScan()">📷 QUÉT NGAY</button>
 
 <div id="reader"></div>
 
@@ -148,7 +130,7 @@ function confirmPrice() {
     return;
   }
   priceOK = true;
-  alert("Đã ghi nhận giá");
+  alert("OK giá");
 }
 
 function timeNow() {
@@ -157,7 +139,7 @@ function timeNow() {
 
 function toggleItem(phone) {
   if (!priceOK) {
-    alert("Chưa xác nhận giá!");
+    alert("Chưa OK giá!");
     return;
   }
 
@@ -186,7 +168,7 @@ function onScanSuccess(text) {
   if (isNaN(text)) {
     currentSP = text;
     document.getElementById("sp").innerText = text;
-    priceOK = false; // reset giá khi đổi SP
+    priceOK = false;
   } else {
     if (!currentSP) return;
     toggleItem(text);
@@ -203,7 +185,7 @@ function startScan() {
 
     scanner.start(backCam.id, {
       fps: 20,
-      qrbox: 180
+      qrbox: 200
     }, onScanSuccess);
   });
 }
