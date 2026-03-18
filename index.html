@@ -1,1 +1,45 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>Scan</title>
 
+<script src="https://unpkg.com/html5-qrcode"></script>
+
+</head>
+
+<body>
+
+<h2>QUÉT MÃ</h2>
+
+<p>SP: <b id="sp">Chưa có</b></p>
+<input id="price" placeholder="Nhập giá">
+
+<div id="reader" style="width:300px;"></div>
+
+<script>
+let currentSP = "";
+
+function onScanSuccess(text) {
+    if (isNaN(text)) {
+        currentSP = text;
+        document.getElementById("sp").innerText = text;
+    } else {
+        if (currentSP === "") {
+            alert("Chưa quét SP");
+            return;
+        }
+        alert("SĐT: " + text);
+    }
+}
+
+let scanner = new Html5QrcodeScanner("reader", {
+    fps: 10,
+    qrbox: 250
+});
+
+scanner.render(onScanSuccess);
+</script>
+
+</body>
+</html>
