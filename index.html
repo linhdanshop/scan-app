@@ -2,43 +2,170 @@
 <html>
 <head>
 <meta charset="UTF-8">
-<title>Scan</title>
+<title>Scan Pro</title>
 
 <script src="https://unpkg.com/html5-qrcode"></script>
 
+<style>
+body { font-family: Arial; padding: 10px; background:#f5f5f5; }
+
+#reader { width: 100%; max-width: 350px; margin: 10px 0; display:none; }
+
+.box { background: white; padding: 10px; border-radius: 8px; margin-bottom: 10px; }
+
+button {
+  width: 100%;
+  padding: 15px;
+  font-size: 18px;
+  background: #007bff;
+  color: white;
+  border: none;
+  border-radius: 8px;
+}
+
+button:active { background:#0056b3; }
+
+input {
+  width: 100%;
+  padding: 10px;
+  margin-top: 5px;
+}
+
+.item {
+  padding: 8px;
+  border-bottom: 1px solid #eee;
+  cursor: pointer;
+}
+.item:hover { background:#ffecec; }
+
+.sp { font-weight: bold; color:#007bff; }
+.time { font-size:12px; color:#888; }
+
+.status {
+  margin-top:5px;
+  font-size:13px;
+  color:#666;
+}
+</style>
 </head>
 
 <body>
 
-<h2>QUÉT MÃ</h2>
+<h2>🚀 SCAN PRO</h2>
 
-<p>SP: <b id="sp">Chưa có</b></p>
-<input id="price" placeholder="Nhập giá">
+<div class="box">
+  SP: <span id="sp">---</span>
+  <input id="price" placeholder="Nhập giá">
+</div>
 
-<div id="reader" style="width:300px;"></div>
+<button onclick="startScan()">📷 BẮT ĐẦU QUÉT</button>
+
+<div class="status" id="status">Chưa quét</div>
+
+<div id="reader"></div>
+
+<div class="box">
+  <b>Danh sách</b>
+  <div id="list"></div>
+</div>
 
 <script>
 let currentSP = "";
+let lastScan = "";
+let dataList = JSON.parse(localStorage.getItem("data")) || [];
+let scanner;
+
+function save() {
+    localStorage.setItem("data", JSON.stringify(dataList));
+}
+
+function timeNow() {
+    return new Date().toLocaleTimeString();
+}
+
+function render() {
+    let html = "";
+    dataList.forEach((i, idx) => {
+        html += `<div class="item" onclick="removeItem(${idx})">
+            ${idx+1}. <span class="sp">${i.sp}</span> | ${i.phone} | ${i.price}
+            <br><span class="time">${i.time}</span>
+        </div>`;
+    });
+    document.getElementById("list").innerHTML = html;
+}
+
+function removeItem(i) {
+    dataList.splice(i,1);
+    save();
+    render();
+}
+
+function toggleItem(phone) {
+    let index = dataList.findIndex(i => i.phone === phone && i.sp === currentSP);
+
+    if (index !== -1) {
+        dataList.splice(index,1);
+    } else {
+        dataList.push({
+            sp: currentSP,
+            phone: phone,
+            price: document.getElementById("price").value,
+            time: timeNow()
+        });
+    }
+
+    save();
+    render();
+}
 
 function onScanSuccess(text) {
+    if (text === lastScan) return;
+    lastScan = text;
+    setTimeout(() => lastScan = "", 300);
+
+    document.getElementById("status").innerText = "✅ Quét: " + text;
+
     if (isNaN(text)) {
         currentSP = text;
         document.getElementById("sp").innerText = text;
     } else {
-        if (currentSP === "") {
-            alert("Chưa quét SP");
+        if (!currentSP) {
+            document.getElementById("status").innerText = "❌ Chưa có SP";
             return;
         }
-        alert("SĐT: " + text);
+        toggleItem(text);
     }
 }
 
-let scanner = new Html5QrcodeScanner("reader", {
-    fps: 10,
-    qrbox: 250
-});
+function onScanError(err) {
+    document.getElementById("status").innerText = "⚠️ Không nhận diện được mã";
+}
 
-scanner.render(onScanSuccess);
+function startScan() {
+    document.getElementById("reader").style.display = "block";
+
+    Html5Qrcode.getCameras().then(devices => {
+        let backCam = devices.find(d => d.label.toLowerCase().includes("back")) || devices[0];
+
+        scanner = new Html5Qrcode("reader");
+
+        scanner.start(
+            backCam.id,
+            {
+                fps: 20,        // MAX tốc độ
+                qrbox: 180      // nhỏ → nhanh hơn
+            },
+            onScanSuccess,
+            onScanError
+        );
+
+        document.getElementById("status").innerText = "📷 Đang quét...";
+    }).catch(err => {
+        document.getElementById("status").innerText = "❌ Không mở được camera";
+    });
+}
+
+render();
 </script>
 
 </body>
