@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>Scan SP</title>
+<script src="https://unpkg.com/html5-qrcode"></script>
+<style>
+body { font-family: Arial; padding: 20px; }
+input { font-size: 18px; margin: 5px 0; width: 100%; padding: 10px; }
+button { padding: 10px; font-size: 16px; margin-top: 10px; }
+</style>
+</head>
+
+<body>
+
+<h2>📦 Scan sản phẩm</h2>
+
+<p>Mã SP hiện tại: <b id="currentSP">Chưa có</b></p>
+
+<input id="price" placeholder="Nhập giá..." />
+
+<div id="reader" style="width:300px;"></div>
+
+<button onclick="downloadExcel()">📥 Tải Excel</button>
+
+<script>
+let currentSP = "";
+let data = [];
+
+function onScanSuccess(decodedText) {
+    if (isNaN(decodedText)) {
+        // là mã SP
+        currentSP = decodedText;
+        document.getElementById("currentSP").innerText = currentSP;
+    } else {
+        // là số điện thoại
+        if (currentSP === "") {
+            alert("Chưa có mã SP!");
+            return;
+        }
+
+        let price = document.getElementById("price").value;
+
+        data.push({
+            sp: currentSP,
+            phone: decodedText,
+            price: price
+        });
+
+        alert("Đã lưu: " + decodedText);
+    }
+}
+
+let html5QrcodeScanner = new Html5QrcodeScanner(
+    "reader", { fps: 10, qrbox: 250 });
+
+html5QrcodeScanner.render(onScanSuccess);
+
+function downloadExcel() {
+    let csv = "Ma_SP,So_dien_thoai,Gia\n";
+    data.forEach(r => {
+        csv += `${r.sp},${r.phone},${r.price}\n`;
+    });
+
+    let blob = new Blob([csv], { type: 'text/csv' });
+    let a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = "data.csv";
+    a.click();
+}
+</script>
+
+</body>
+</html>
