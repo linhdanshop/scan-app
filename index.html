@@ -7,162 +7,205 @@
 <script src="https://unpkg.com/html5-qrcode"></script>
 
 <style>
-body { font-family: Arial; padding: 10px; background:#f5f5f5; }
-
-#reader { width: 100%; max-width: 350px; margin: 10px 0; display:none; }
-
-.box { background: white; padding: 10px; border-radius: 8px; margin-bottom: 10px; }
-
-button {
-  width: 100%;
-  padding: 15px;
-  font-size: 18px;
-  background: #007bff;
-  color: white;
-  border: none;
-  border-radius: 8px;
+body {
+  font-family: Arial;
+  padding: 10px;
+  background:#f5f5f5;
 }
 
-button:active { background:#0056b3; }
+/* SP nổi bật */
+.sp-box {
+  background: #fff;
+  padding: 15px;
+  border-radius: 10px;
+  font-size: 22px;
+  font-weight: bold;
+  color: #007bff;
+  text-align: center;
+  margin-bottom: 10px;
+}
 
-input {
+/* Giá + nút */
+.price-row {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.price-row input {
+  flex: 1;
+  padding: 15px;
+  font-size: 20px;
+  border-radius: 10px;
+  border: 1px solid #ccc;
+}
+
+.price-row button {
+  width: 140px;
+  font-size: 18px;
+  border-radius: 10px;
+  border: none;
+  background: #28a745;
+  color: white;
+}
+
+.price-row button:active {
+  background:#1e7e34;
+}
+
+/* Nút scan */
+.scan-btn {
   width: 100%;
-  padding: 10px;
-  margin-top: 5px;
+  padding: 18px;
+  font-size: 20px;
+  background:#007bff;
+  color:white;
+  border:none;
+  border-radius:10px;
+  margin-bottom:10px;
+}
+
+/* camera */
+#reader {
+  width: 100%;
+  max-width: 400px;
+  display:none;
+  margin-bottom:10px;
+}
+
+/* danh sách */
+.list {
+  background:#fff;
+  border-radius:10px;
+  padding:10px;
 }
 
 .item {
-  padding: 8px;
-  border-bottom: 1px solid #eee;
-  cursor: pointer;
+  padding:10px;
+  border-bottom:1px solid #eee;
+  font-size:15px;
 }
-.item:hover { background:#ffecec; }
 
-.sp { font-weight: bold; color:#007bff; }
-.time { font-size:12px; color:#888; }
+.item:active {
+  background:#ffecec;
+}
 
-.status {
-  margin-top:5px;
-  font-size:13px;
-  color:#666;
+.time {
+  font-size:12px;
+  color:#888;
 }
 </style>
 </head>
 
 <body>
 
-<h2>🚀 SCAN PRO</h2>
-
-<div class="box">
+<div class="sp-box">
   SP: <span id="sp">---</span>
-  <input id="price" placeholder="Nhập giá">
 </div>
 
-<button onclick="startScan()">📷 BẮT ĐẦU QUÉT</button>
+<div class="price-row">
+  <input id="price" placeholder="Nhập giá">
+  <button onclick="confirmPrice()">✔ OK</button>
+</div>
 
-<div class="status" id="status">Chưa quét</div>
+<button class="scan-btn" onclick="startScan()">📷 QUÉT</button>
 
 <div id="reader"></div>
 
-<div class="box">
-  <b>Danh sách</b>
-  <div id="list"></div>
-</div>
+<div class="list" id="list"></div>
 
 <script>
 let currentSP = "";
 let lastScan = "";
 let dataList = JSON.parse(localStorage.getItem("data")) || [];
 let scanner;
+let priceOK = false;
 
 function save() {
-    localStorage.setItem("data", JSON.stringify(dataList));
-}
-
-function timeNow() {
-    return new Date().toLocaleTimeString();
+  localStorage.setItem("data", JSON.stringify(dataList));
 }
 
 function render() {
-    let html = "";
-    dataList.forEach((i, idx) => {
-        html += `<div class="item" onclick="removeItem(${idx})">
-            ${idx+1}. <span class="sp">${i.sp}</span> | ${i.phone} | ${i.price}
-            <br><span class="time">${i.time}</span>
-        </div>`;
-    });
-    document.getElementById("list").innerHTML = html;
+  let html = "";
+  dataList.forEach((i, idx) => {
+    html += `<div class="item" onclick="removeItem(${idx})">
+      ${idx+1}. ${i.sp} | ${i.phone} | ${i.price}
+      <br><span class="time">${i.time}</span>
+    </div>`;
+  });
+  document.getElementById("list").innerHTML = html;
 }
 
 function removeItem(i) {
-    dataList.splice(i,1);
-    save();
-    render();
+  dataList.splice(i,1);
+  save();
+  render();
+}
+
+function confirmPrice() {
+  if (!document.getElementById("price").value) {
+    alert("Nhập giá!");
+    return;
+  }
+  priceOK = true;
+  alert("Đã ghi nhận giá");
+}
+
+function timeNow() {
+  return new Date().toLocaleTimeString();
 }
 
 function toggleItem(phone) {
-    let index = dataList.findIndex(i => i.phone === phone && i.sp === currentSP);
+  if (!priceOK) {
+    alert("Chưa xác nhận giá!");
+    return;
+  }
 
-    if (index !== -1) {
-        dataList.splice(index,1);
-    } else {
-        dataList.push({
-            sp: currentSP,
-            phone: phone,
-            price: document.getElementById("price").value,
-            time: timeNow()
-        });
-    }
+  let index = dataList.findIndex(i => i.phone === phone && i.sp === currentSP);
 
-    save();
-    render();
+  if (index !== -1) {
+    dataList.splice(index,1);
+  } else {
+    dataList.push({
+      sp: currentSP,
+      phone: phone,
+      price: document.getElementById("price").value,
+      time: timeNow()
+    });
+  }
+
+  save();
+  render();
 }
 
 function onScanSuccess(text) {
-    if (text === lastScan) return;
-    lastScan = text;
-    setTimeout(() => lastScan = "", 300);
+  if (text === lastScan) return;
+  lastScan = text;
+  setTimeout(() => lastScan = "", 300);
 
-    document.getElementById("status").innerText = "✅ Quét: " + text;
-
-    if (isNaN(text)) {
-        currentSP = text;
-        document.getElementById("sp").innerText = text;
-    } else {
-        if (!currentSP) {
-            document.getElementById("status").innerText = "❌ Chưa có SP";
-            return;
-        }
-        toggleItem(text);
-    }
-}
-
-function onScanError(err) {
-    document.getElementById("status").innerText = "⚠️ Không nhận diện được mã";
+  if (isNaN(text)) {
+    currentSP = text;
+    document.getElementById("sp").innerText = text;
+    priceOK = false; // reset giá khi đổi SP
+  } else {
+    if (!currentSP) return;
+    toggleItem(text);
+  }
 }
 
 function startScan() {
-    document.getElementById("reader").style.display = "block";
+  document.getElementById("reader").style.display = "block";
 
-    Html5Qrcode.getCameras().then(devices => {
-        let backCam = devices.find(d => d.label.toLowerCase().includes("back")) || devices[0];
+  Html5Qrcode.getCameras().then(devices => {
+    let backCam = devices.find(d => d.label.toLowerCase().includes("back")) || devices[0];
 
-        scanner = new Html5Qrcode("reader");
+    scanner = new Html5Qrcode("reader");
 
-        scanner.start(
-            backCam.id,
-            {
-                fps: 20,        // MAX tốc độ
-                qrbox: 180      // nhỏ → nhanh hơn
-            },
-            onScanSuccess,
-            onScanError
-        );
-
-        document.getElementById("status").innerText = "📷 Đang quét...";
-    }).catch(err => {
-        document.getElementById("status").innerText = "❌ Không mở được camera";
-    });
+    scanner.start(backCam.id, {
+      fps: 20,
+      qrbox: 180
+    }, onScanSuccess);
+  });
 }
 
 render();
