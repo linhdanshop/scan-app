@@ -1,187 +1,112 @@
 <!DOCTYPE html>
 <html>
 <head>
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Quét Bill</title>
-
+<meta name="viewport" content="width=device-width, initial-scale=1">
 <script src="https://unpkg.com/html5-qrcode"></script>
 
 <style>
-body {
-  font-family: Arial;
-  margin: 0;
-  padding: 10px;
-  background: #f5f5f5;
-}
-
-.container {
-  max-width: 500px;
-  margin: auto;
-}
-
-input, select, button {
+body { font-family: Arial; padding: 15px; }
+input, button {
   width: 100%;
-  padding: 12px;
-  margin-top: 8px;
-  font-size: 16px;
+  padding: 14px;
+  margin: 8px 0;
+  font-size: 18px;
 }
-
-button {
-  background: #007bff;
-  color: white;
-  border: none;
-  border-radius: 8px;
-}
-
 #reader {
   width: 100%;
   margin-top: 10px;
 }
-
-.toast {
-  position: fixed;
-  bottom: 20px;
-  left: 50%;
-  transform: translateX(-50%);
-  background: black;
-  color: white;
-  padding: 10px 20px;
-  border-radius: 20px;
-  display: none;
+#log {
+  margin-top: 15px;
+  max-height: 150px;
+  overflow: auto;
 }
 </style>
 </head>
 
 <body>
-<div class="container">
 
-<h2>Quét Bill</h2>
+<h3>QUÉT ĐƠN</h3>
 
-<select id="nhanvien">
-  <option value="">Chọn nhân viên</option>
-  <option>Thuy</option>
-  <option>NV1</option>
-</select>
+<input id="nhanvien" placeholder="Nhân viên">
+<input id="gia" placeholder="Giá">
+<input id="masp" placeholder="Mã SP">
 
-<input id="gia" placeholder="Giá nhập">
-<input id="masp" placeholder="Mã sản phẩm">
-<input id="sdt" placeholder="Số điện thoại">
-
-<button onclick="scanMode='gia'; startScan()">Quét Giá</button>
-<button onclick="scanMode='masp'; startScan()">Quét SP</button>
-<button onclick="scanMode='sdt'; startScan()">Quét SĐT</button>
-
-<button onclick="switchCamera()">Đổi Camera</button>
-<button onclick="viewHistory()">Xem lịch sử</button>
+<button onclick="startScan()">📷 Bắt đầu quét</button>
+<button onclick="stopScan()">⛔ Dừng quét</button>
 
 <div id="reader"></div>
 
-<div class="toast" id="toast"></div>
-
-</div>
+<div id="log"></div>
 
 <script>
 
-const API = "https://script.google.com/macros/s/AKfycbxXWj4tzfLolIsRj4YuWuy3V8E0N3UzKQvf6QhpGKQtdwt4_1k0BZCeAB3P7vEYbo6cfg/exec";
+const API = "https://script.google.com/macros/s/AKfycbwIwIDVi5KRK7G-xP8uxAIf00BVdSHYHFUd9wAptVppe2me_rMCJZHpAHwBjtk698WN9A/exec";
 
-let scanner;
-let scanMode = "";
-let cameras = [];
-let camIndex = 0;
+let lastGia = "";
+let lastMasp = "";
 
-function toast(msg) {
-  let t = document.getElementById("toast");
-  t.innerText = msg;
-  t.style.display = "block";
-  setTimeout(() => t.style.display = "none", 1500);
-}
-
-Html5Qrcode.getCameras().then(devices => {
-  cameras = devices;
+document.getElementById("gia").addEventListener("change", e => {
+  lastGia = e.target.value;
 });
+
+document.getElementById("masp").addEventListener("change", e => {
+  lastMasp = e.target.value;
+});
+
+let html5QrCode;
 
 function startScan() {
 
-  if (!document.getElementById("nhanvien").value) {
-    alert("Chọn nhân viên trước");
+  html5QrCode = new Html5Qrcode("reader");
+
+  Html5Qrcode.getCameras().then(devices => {
+
+    if (devices && devices.length) {
+
+      // 🔥 chọn camera sau (camera cuối)
+      const cameraId = devices[devices.length - 1].id;
+
+      html5QrCode.start(
+        cameraId,
+        {
+          fps: 10,
+          qrbox: 250
+        },
+        onScanSuccess
+      );
+    }
+  });
+}
+
+function stopScan() {
+  if (html5QrCode) {
+    html5QrCode.stop();
+  }
+}
+
+function onScanSuccess(decodedText) {
+
+  const nhanvien = document.getElementById("nhanvien").value;
+  const gia = lastGia;
+  const masp = lastMasp;
+  const sdt = decodedText;
+
+  if (!nhanvien || !gia || !masp) {
+    alert("Thiếu dữ liệu");
     return;
   }
 
-  if (scanner) scanner.stop();
+  // 🔥 HIỆN NGAY (KHÔNG DELAY)
+  const log = document.getElementById("log");
+  log.innerHTML = `<div>✔ ${sdt}</div>` + log.innerHTML;
 
-  scanner = new Html5Qrcode("reader");
-
-  scanner.start(
-    cameras[camIndex].id,
-    {
-      fps: 15,
-      qrbox: { width: 250, height: 250 }
-    },
-    (text) => handleScan(text)
-  );
-}
-
-function switchCamera() {
-  if (cameras.length < 2) return alert("Không có camera khác");
-  camIndex = (camIndex + 1) % cameras.length;
-  startScan();
-}
-
-function handleScan(text) {
-
-  if (scanMode === "gia") {
-    if (!/^\d{5,6}$/.test(text)) return alert("Sai giá");
-    document.getElementById("gia").value = text;
-    toast("Đã quét giá");
-  }
-
-  else if (scanMode === "masp") {
-    if (!/^[A-Za-z0-9]+$/.test(text)) return alert("Sai mã SP");
-    document.getElementById("masp").value = text;
-    toast("Đã quét SP");
-  }
-
-  else if (scanMode === "sdt") {
-    if (!/^(0[3|5|7|8|9])[0-9]{8}$/.test(text)) return alert("Sai SĐT");
-
-    document.getElementById("sdt").value = text;
-    toast("Đã quét SĐT");
-
-    saveData();
-  }
-
-}
-
-function saveData() {
-
-  let data = {
-    email: localStorage.getItem("email"),
-    nhanvien: document.getElementById("nhanvien").value,
-    session: Date.now(),
-    scan_id: Date.now(),
-    gianhap: document.getElementById("gia").value,
-    masp: document.getElementById("masp").value,
-    sdt: document.getElementById("sdt").value
-  };
-
+  // 🔥 GỬI NỀN
   fetch(API, {
     method: "POST",
-    body: JSON.stringify(data)
-  }).then(res => res.text())
-  .then(() => {
-    toast("Đã lưu");
-    document.getElementById("sdt").value = "";
+    body: JSON.stringify({ nhanvien, gia, masp, sdt })
   });
 
-}
-
-function viewHistory() {
-  window.open("https://docs.google.com/spreadsheets/d/1kjizkBJo-QOFyq63rPFI7as5PXuShDYdhFZUyChf8e0");
-}
-
-if (!localStorage.getItem("email")) {
-  let email = prompt("Nhập Gmail:");
-  localStorage.setItem("email", email);
 }
 
 </script>
