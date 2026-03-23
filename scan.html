@@ -2,72 +2,145 @@
 <html>
 <head>
 <meta charset="UTF-8">
-<title>Scan SP</title>
 <script src="https://unpkg.com/html5-qrcode"></script>
-<style>
-body { font-family: Arial; padding: 20px; }
-input { font-size: 18px; margin: 5px 0; width: 100%; padding: 10px; }
-button { padding: 10px; font-size: 16px; margin-top: 10px; }
-</style>
 </head>
 
 <body>
 
-<h2>📦 Scan sản phẩm</h2>
+<h3>Quét Bill</h3>
 
-<p>Mã SP hiện tại: <b id="currentSP">Chưa có</b></p>
+<select id="nhanvien">
+  <option>Thuy</option>
+  <option>A</option>
+  <option>B</option>
+</select>
 
-<input id="price" placeholder="Nhập giá..." />
+<br><br>
 
-<div id="reader" style="width:300px;"></div>
+<input id="gianhap" placeholder="Giá nhập">
+<button onclick="scanGia()">Quét Giá</button>
 
-<button onclick="downloadExcel()">📥 Tải Excel</button>
+<br><br>
+
+<input id="masp" placeholder="Mã SP">
+<button onclick="scanSP()">Quét SP</button>
+
+<br><br>
+
+<input id="sdt" placeholder="SĐT">
+<button onclick="scanSDT()">Quét SĐT</button>
+
+<br><br>
+
+<button onclick="logout()">Đổi người</button>
+
+<div id="reader" style="width:300px"></div>
 
 <script>
-let currentSP = "";
-let data = [];
 
-function onScanSuccess(decodedText) {
-    if (isNaN(decodedText)) {
-        // là mã SP
-        currentSP = decodedText;
-        document.getElementById("currentSP").innerText = currentSP;
-    } else {
-        // là số điện thoại
-        if (currentSP === "") {
-            alert("Chưa có mã SP!");
-            return;
-        }
+const API = "DÁN_API_CỦA_BẠN_VÀO_ĐÂY";
 
-        let price = document.getElementById("price").value;
-
-        data.push({
-            sp: currentSP,
-            phone: decodedText,
-            price: price
-        });
-
-        alert("Đã lưu: " + decodedText);
-    }
+// ===== SESSION =====
+function createSession() {
+  return Date.now() + "_" + Math.random().toString(36).substring(2,8);
 }
 
-let html5QrcodeScanner = new Html5QrcodeScanner(
-    "reader", { fps: 10, qrbox: 250 });
+let SESSION = localStorage.getItem("session") || createSession();
+localStorage.setItem("session", SESSION);
 
-html5QrcodeScanner.render(onScanSuccess);
+// ===== LOAD =====
+window.onload = () => {
+  document.getElementById("nhanvien").value = localStorage.getItem("nhanvien") || "";
+  document.getElementById("gianhap").value = localStorage.getItem("gianhap") || "";
+  document.getElementById("masp").value = localStorage.getItem("masp") || "";
+};
 
-function downloadExcel() {
-    let csv = "Ma_SP,So_dien_thoai,Gia\n";
-    data.forEach(r => {
-        csv += `${r.sp},${r.phone},${r.price}\n`;
-    });
-
-    let blob = new Blob([csv], { type: 'text/csv' });
-    let a = document.createElement("a");
-    a.href = URL.createObjectURL(blob);
-    a.download = "data.csv";
-    a.click();
+// ===== SAVE =====
+function saveData() {
+  localStorage.setItem("nhanvien", document.getElementById("nhanvien").value);
+  localStorage.setItem("gianhap", document.getElementById("gianhap").value);
+  localStorage.setItem("masp", document.getElementById("masp").value);
 }
+
+// ===== SCAN ID =====
+function createScanID() {
+  return Date.now() + "_" + Math.random().toString(36).substring(2,6);
+}
+
+// ===== SEND =====
+function sendData(sdt) {
+
+  saveData();
+
+  const data = {
+    email: "test@gmail.com",
+    nhanvien: document.getElementById("nhanvien").value,
+    session: SESSION,
+    scan_id: createScanID(),
+    gianhap: document.getElementById("gianhap").value,
+    masp: document.getElementById("masp").value,
+    sdt: sdt
+  };
+
+  fetch(API, {
+    method: "POST",
+    body: JSON.stringify(data)
+  });
+
+  navigator.vibrate(200);
+
+  document.getElementById("sdt").value = "";
+}
+
+// ===== SCAN =====
+let scanner;
+
+function startScan(callback) {
+
+  if (scanner) scanner.stop();
+
+  scanner = new Html5Qrcode("reader");
+
+  Html5Qrcode.getCameras().then(devices => {
+
+    scanner.start(
+      devices[0].id,
+      { fps: 15, qrbox: 250 },
+      (text) => {
+        callback(text);
+      }
+    );
+
+  });
+}
+
+// ===== ACTION =====
+function scanGia() {
+  startScan((text) => {
+    document.getElementById("gianhap").value = text;
+    saveData();
+  });
+}
+
+function scanSP() {
+  startScan((text) => {
+    document.getElementById("masp").value = text;
+    saveData();
+  });
+}
+
+function scanSDT() {
+  startScan((text) => {
+    sendData(text);
+  });
+}
+
+// ===== LOGOUT =====
+function logout() {
+  localStorage.clear();
+  location.reload();
+}
+
 </script>
 
 </body>
