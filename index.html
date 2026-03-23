@@ -1,159 +1,187 @@
 <!DOCTYPE html>
 <html>
 <head>
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Quét Bill</title>
+
 <script src="https://unpkg.com/html5-qrcode"></script>
 
 <style>
 body {
   font-family: Arial;
+  margin: 0;
   padding: 10px;
+  background: #f5f5f5;
+}
+
+.container {
+  max-width: 500px;
+  margin: auto;
 }
 
 input, select, button {
   width: 100%;
-  padding: 14px;
-  margin: 6px 0;
-  font-size: 18px;
+  padding: 12px;
+  margin-top: 8px;
+  font-size: 16px;
 }
 
 button {
   background: #007bff;
   color: white;
   border: none;
+  border-radius: 8px;
 }
 
 #reader {
   width: 100%;
   margin-top: 10px;
 }
-</style>
 
+.toast {
+  position: fixed;
+  bottom: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: black;
+  color: white;
+  padding: 10px 20px;
+  border-radius: 20px;
+  display: none;
+}
+</style>
 </head>
 
 <body>
+<div class="container">
 
 <h2>Quét Bill</h2>
 
 <select id="nhanvien">
+  <option value="">Chọn nhân viên</option>
   <option>Thuy</option>
-  <option>A</option>
-  <option>B</option>
+  <option>NV1</option>
 </select>
 
-<input id="gianhap" placeholder="Giá nhập">
-<button onclick="mode='gia'; startScan()">Quét giá</button>
+<input id="gia" placeholder="Giá nhập">
+<input id="masp" placeholder="Mã sản phẩm">
+<input id="sdt" placeholder="Số điện thoại">
 
-<input id="masp" placeholder="Mã SP">
-<button onclick="mode='sp'; startScan()">Quét SP</button>
+<button onclick="scanMode='gia'; startScan()">Quét Giá</button>
+<button onclick="scanMode='masp'; startScan()">Quét SP</button>
+<button onclick="scanMode='sdt'; startScan()">Quét SĐT</button>
 
-<input id="sdt" placeholder="SĐT">
-<button onclick="mode='sdt'; startScan()">Quét & lưu</button>
+<button onclick="switchCamera()">Đổi Camera</button>
+<button onclick="viewHistory()">Xem lịch sử</button>
 
 <div id="reader"></div>
 
+<div class="toast" id="toast"></div>
+
+</div>
+
 <script>
 
-const API = "DÁN_API_CỦA_BẠN";
+const API = "https://script.google.com/macros/s/AKfycbxXWj4tzfLolIsRj4YuWuy3V8E0N3UzKQvf6QhpGKQtdwt4_1k0BZCeAB3P7vEYbo6cfg/exec";
 
-// ===== STATE =====
-let mode = "";
 let scanner;
-let lastScanTime = 0;
+let scanMode = "";
+let cameras = [];
+let camIndex = 0;
 
-// ===== SESSION =====
-let SESSION = localStorage.getItem("session") || Date.now();
-localStorage.setItem("session", SESSION);
-
-// ===== LOAD =====
-window.onload = () => {
-  document.getElementById("nhanvien").value = localStorage.getItem("nhanvien") || "";
-  document.getElementById("gianhap").value = localStorage.getItem("gianhap") || "";
-  document.getElementById("masp").value = localStorage.getItem("masp") || "";
-};
-
-// ===== SAVE =====
-function saveData() {
-  localStorage.setItem("nhanvien", document.getElementById("nhanvien").value);
-  localStorage.setItem("gianhap", document.getElementById("gianhap").value);
-  localStorage.setItem("masp", document.getElementById("masp").value);
+function toast(msg) {
+  let t = document.getElementById("toast");
+  t.innerText = msg;
+  t.style.display = "block";
+  setTimeout(() => t.style.display = "none", 1500);
 }
 
-// ===== SEND =====
-function sendData(sdt) {
+Html5Qrcode.getCameras().then(devices => {
+  cameras = devices;
+});
 
-  const data = {
-    email: "test@gmail.com",
+function startScan() {
+
+  if (!document.getElementById("nhanvien").value) {
+    alert("Chọn nhân viên trước");
+    return;
+  }
+
+  if (scanner) scanner.stop();
+
+  scanner = new Html5Qrcode("reader");
+
+  scanner.start(
+    cameras[camIndex].id,
+    {
+      fps: 15,
+      qrbox: { width: 250, height: 250 }
+    },
+    (text) => handleScan(text)
+  );
+}
+
+function switchCamera() {
+  if (cameras.length < 2) return alert("Không có camera khác");
+  camIndex = (camIndex + 1) % cameras.length;
+  startScan();
+}
+
+function handleScan(text) {
+
+  if (scanMode === "gia") {
+    if (!/^\d{5,6}$/.test(text)) return alert("Sai giá");
+    document.getElementById("gia").value = text;
+    toast("Đã quét giá");
+  }
+
+  else if (scanMode === "masp") {
+    if (!/^[A-Za-z0-9]+$/.test(text)) return alert("Sai mã SP");
+    document.getElementById("masp").value = text;
+    toast("Đã quét SP");
+  }
+
+  else if (scanMode === "sdt") {
+    if (!/^(0[3|5|7|8|9])[0-9]{8}$/.test(text)) return alert("Sai SĐT");
+
+    document.getElementById("sdt").value = text;
+    toast("Đã quét SĐT");
+
+    saveData();
+  }
+
+}
+
+function saveData() {
+
+  let data = {
+    email: localStorage.getItem("email"),
     nhanvien: document.getElementById("nhanvien").value,
-    session: SESSION,
+    session: Date.now(),
     scan_id: Date.now(),
-    gianhap: document.getElementById("gianhap").value,
+    gianhap: document.getElementById("gia").value,
     masp: document.getElementById("masp").value,
-    sdt: sdt
+    sdt: document.getElementById("sdt").value
   };
 
   fetch(API, {
     method: "POST",
     body: JSON.stringify(data)
+  }).then(res => res.text())
+  .then(() => {
+    toast("Đã lưu");
+    document.getElementById("sdt").value = "";
   });
 
-  navigator.vibrate(200);
-  document.getElementById("sdt").value = "";
 }
 
-// ===== SCAN =====
-function startScan() {
-
-  if (scanner) {
-    scanner.stop();
-  }
-
-  scanner = new Html5Qrcode("reader");
-
-  Html5Qrcode.getCameras().then(devices => {
-
-    // 👉 Ưu tiên camera sau
-    let backCam = devices.find(d => d.label.toLowerCase().includes("back"));
-    let cameraId = backCam ? backCam.id : devices[0].id;
-
-    scanner.start(
-      cameraId,
-      {
-        fps: 20,
-        qrbox: { width: 280, height: 280 },
-        aspectRatio: 1.0
-      },
-      (text) => {
-
-        // 👉 chống quét trùng nhanh
-        let now = Date.now();
-        if (now - lastScanTime < 1000) return;
-        lastScanTime = now;
-
-        handleScan(text);
-      }
-    );
-
-  });
+function viewHistory() {
+  window.open("https://docs.google.com/spreadsheets/d/1kjizkBJo-QOFyq63rPFI7as5PXuShDYdhFZUyChf8e0");
 }
 
-// ===== HANDLE =====
-function handleScan(text) {
-
-  if (mode === "gia") {
-    document.getElementById("gianhap").value = text;
-  }
-
-  if (mode === "sp") {
-    document.getElementById("masp").value = text;
-  }
-
-  if (mode === "sdt") {
-    sendData(text);
-  }
-
-  saveData();
+if (!localStorage.getItem("email")) {
+  let email = prompt("Nhập Gmail:");
+  localStorage.setItem("email", email);
 }
 
 </script>
