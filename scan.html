@@ -1,13 +1,40 @@
 <!DOCTYPE html>
 <html>
 <head>
+<meta name="viewport" content="width=device-width, initial-scale=1">
 <meta charset="UTF-8">
 <script src="https://unpkg.com/html5-qrcode"></script>
+
+<style>
+body {
+  font-family: Arial;
+  padding: 10px;
+}
+
+input, select, button {
+  width: 100%;
+  padding: 14px;
+  margin: 6px 0;
+  font-size: 18px;
+}
+
+button {
+  background: #007bff;
+  color: white;
+  border: none;
+}
+
+#reader {
+  width: 100%;
+  margin-top: 10px;
+}
+</style>
+
 </head>
 
 <body>
 
-<h3>Quét Bill</h3>
+<h2>Quét Bill</h2>
 
 <select id="nhanvien">
   <option>Thuy</option>
@@ -15,37 +42,28 @@
   <option>B</option>
 </select>
 
-<br><br>
-
 <input id="gianhap" placeholder="Giá nhập">
-<button onclick="scanGia()">Quét Giá</button>
-
-<br><br>
+<button onclick="mode='gia'; startScan()">Quét giá</button>
 
 <input id="masp" placeholder="Mã SP">
-<button onclick="scanSP()">Quét SP</button>
-
-<br><br>
+<button onclick="mode='sp'; startScan()">Quét SP</button>
 
 <input id="sdt" placeholder="SĐT">
-<button onclick="scanSDT()">Quét SĐT</button>
+<button onclick="mode='sdt'; startScan()">Quét & lưu</button>
 
-<br><br>
-
-<button onclick="logout()">Đổi người</button>
-
-<div id="reader" style="width:300px"></div>
+<div id="reader"></div>
 
 <script>
 
-const API = "DÁN_API_CỦA_BẠN_VÀO_ĐÂY";
+const API = "DÁN_API_CỦA_BẠN";
+
+// ===== STATE =====
+let mode = "";
+let scanner;
+let lastScanTime = 0;
 
 // ===== SESSION =====
-function createSession() {
-  return Date.now() + "_" + Math.random().toString(36).substring(2,8);
-}
-
-let SESSION = localStorage.getItem("session") || createSession();
+let SESSION = localStorage.getItem("session") || Date.now();
 localStorage.setItem("session", SESSION);
 
 // ===== LOAD =====
@@ -62,21 +80,14 @@ function saveData() {
   localStorage.setItem("masp", document.getElementById("masp").value);
 }
 
-// ===== SCAN ID =====
-function createScanID() {
-  return Date.now() + "_" + Math.random().toString(36).substring(2,6);
-}
-
 // ===== SEND =====
 function sendData(sdt) {
-
-  saveData();
 
   const data = {
     email: "test@gmail.com",
     nhanvien: document.getElementById("nhanvien").value,
     session: SESSION,
-    scan_id: createScanID(),
+    scan_id: Date.now(),
     gianhap: document.getElementById("gianhap").value,
     masp: document.getElementById("masp").value,
     sdt: sdt
@@ -88,57 +99,61 @@ function sendData(sdt) {
   });
 
   navigator.vibrate(200);
-
   document.getElementById("sdt").value = "";
 }
 
 // ===== SCAN =====
-let scanner;
+function startScan() {
 
-function startScan(callback) {
-
-  if (scanner) scanner.stop();
+  if (scanner) {
+    scanner.stop();
+  }
 
   scanner = new Html5Qrcode("reader");
 
   Html5Qrcode.getCameras().then(devices => {
 
+    // 👉 Ưu tiên camera sau
+    let backCam = devices.find(d => d.label.toLowerCase().includes("back"));
+    let cameraId = backCam ? backCam.id : devices[0].id;
+
     scanner.start(
-      devices[0].id,
-      { fps: 15, qrbox: 250 },
+      cameraId,
+      {
+        fps: 20,
+        qrbox: { width: 280, height: 280 },
+        aspectRatio: 1.0
+      },
       (text) => {
-        callback(text);
+
+        // 👉 chống quét trùng nhanh
+        let now = Date.now();
+        if (now - lastScanTime < 1000) return;
+        lastScanTime = now;
+
+        handleScan(text);
       }
     );
 
   });
 }
 
-// ===== ACTION =====
-function scanGia() {
-  startScan((text) => {
+// ===== HANDLE =====
+function handleScan(text) {
+
+  if (mode === "gia") {
     document.getElementById("gianhap").value = text;
-    saveData();
-  });
-}
+  }
 
-function scanSP() {
-  startScan((text) => {
+  if (mode === "sp") {
     document.getElementById("masp").value = text;
-    saveData();
-  });
-}
+  }
 
-function scanSDT() {
-  startScan((text) => {
+  if (mode === "sdt") {
     sendData(text);
-  });
-}
+  }
 
-// ===== LOGOUT =====
-function logout() {
-  localStorage.clear();
-  location.reload();
+  saveData();
 }
 
 </script>
