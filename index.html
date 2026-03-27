@@ -83,10 +83,11 @@ button {
 
 .toast.show { opacity:1; }
 
+/* CAMERA */
 #reader {
   margin-top:10px;
-  max-height:180px;
-  overflow:hidden;
+  width:100%;
+  height:260px;
 }
 </style>
 
@@ -140,13 +141,12 @@ button {
 let gia="", masp="";
 let countMSP=0, countAll=0;
 let dataList=[];
-
-let lock=false; // 🔥 chống spam cam + enter
+let lock=false;
+let cam=null;
 
 function isPhone(t){ return /^\d{10}$/.test(t); }
 function isMSP(t){ return /[A-Za-z]/.test(t) && /\d/.test(t); }
 
-// ===== UI =====
 function updateUI(){
   document.getElementById("giaBox").innerHTML =
     gia ? "Giá: "+gia+" ✔" : "Giá: --";
@@ -158,43 +158,37 @@ function updateUI(){
   document.getElementById("countAll").innerText = countAll;
 }
 
-// ===== TOAST =====
 function showToast(msg){
   let t = document.getElementById("toast");
   t.innerText = msg;
   t.classList.add("show");
-  setTimeout(()=> t.classList.remove("show"),1200);
+  setTimeout(()=> t.classList.remove("show"),1000);
 }
 
-// ===== GIÁ =====
 document.getElementById("gia").addEventListener("input", e=>{
   gia = e.target.value.trim();
   updateUI();
 });
 
-// ===== SCAN INPUT =====
 document.getElementById("scanInput").addEventListener("keydown", e=>{
   if(e.key !== "Enter") return;
   if(lock) return;
 
   lock = true;
-
   let text = e.target.value.trim();
   e.target.value = "";
 
   process(text);
 
-  setTimeout(()=> lock=false, 250);
+  setTimeout(()=> lock=false, 200);
 });
 
-// ===== XỬ LÝ =====
 function process(text){
 
   if(!text) return;
 
   // MSP
   if(isMSP(text)){
-
     if(masp && text !== masp){
       masp = text;
       gia = "";
@@ -218,7 +212,6 @@ function process(text){
 
   // SĐT
   if(isPhone(text)){
-
     if(!masp || !gia){
       showToast("Thiếu MSP hoặc giá");
       return;
@@ -231,7 +224,6 @@ function process(text){
       time:new Date().toLocaleTimeString()
     };
 
-    // check trùng
     let duplicate = dataList.find(d =>
       d.masp===item.masp &&
       d.sdt===item.sdt
@@ -251,7 +243,6 @@ function process(text){
   }
 }
 
-// ===== RENDER =====
 function render(){
   let html="";
   dataList.slice(0,20).forEach(d=>{
@@ -266,32 +257,30 @@ function render(){
   document.getElementById("data").innerHTML=html;
 }
 
-// ===== CAMERA =====
-let cam;
-
+/* CAMERA FINAL FIX */
 function startCam(){
 
   if(cam) return;
 
   cam = new Html5Qrcode("reader");
 
-  Html5Qrcode.getCameras().then(devices=>{
+  cam.start(
+    { facingMode: "environment" },
+    {
+      fps: 20,
+      qrbox: { width: 280, height: 280 },
+      aspectRatio: 1.0
+    },
+    (text)=>{
+      if(lock) return;
 
-    let backCam = devices.find(d=>d.label.toLowerCase().includes("back"));
-    let camId = backCam ? backCam.id : devices[devices.length-1].id;
+      lock = true;
+      process(text);
 
-    cam.start(
-      camId,
-      { fps:10, qrbox:220 },
-      text=>{
-        if(lock) return;
-
-        lock = true;
-        process(text);
-
-        setTimeout(()=> lock=false, 300); // 🔥 delay chống quét liên tục
-      }
-    );
+      setTimeout(()=> lock=false, 200);
+    }
+  ).catch(()=>{
+    showToast("Không mở được camera");
   });
 }
 
