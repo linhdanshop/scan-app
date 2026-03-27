@@ -1,8 +1,9 @@
 <!DOCTYPE html>
+
 <html>
 <head>
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>SCAN PRO UI</title>
+<title>SCAN PRO FINAL</title>
 
 <script src="https://unpkg.com/html5-qrcode"></script>
 
@@ -32,8 +33,6 @@ input {
 .red { color:red; }
 .blue { color:#007bff; }
 
-.okmark { color:green; margin-left:5px; }
-
 button {
   flex:1;
   padding:14px;
@@ -45,8 +44,6 @@ button {
 
 .btn-blue { background:#007bff; }
 .btn-red { background:#e53935; }
-
-.status { margin-top:8px; }
 
 .table {
   margin-top:10px;
@@ -71,8 +68,6 @@ button {
 
 .cell { flex:1; }
 
-.warn { color:orange; }
-
 .toast {
   position:fixed;
   bottom:20px;
@@ -90,10 +85,11 @@ button {
 
 #reader {
   margin-top:10px;
-  max-height:180px; /* 🔥 camera nhỏ lại */
+  max-height:180px;
   overflow:hidden;
 }
 </style>
+
 </head>
 
 <body>
@@ -102,7 +98,6 @@ button {
 
 <h3 style="text-align:center">📦 QUÉT ĐƠN PRO</h3>
 
-<!-- GIÁ + MSP -->
 <div class="row">
   <input id="gia" placeholder="Giá">
   <div class="box red" id="giaBox">Giá: --</div>
@@ -112,10 +107,8 @@ button {
   <div class="box blue" id="mspBox">MSP: --</div>
 </div>
 
-<!-- INPUT -->
 <input id="scanInput" placeholder="Quét MSP hoặc SĐT">
 
-<!-- CAMERA -->
 <div class="row">
   <button class="btn-blue" onclick="startCam()">📷 Cam</button>
   <button class="btn-red" onclick="stopCam()">⛔ Tắt</button>
@@ -123,13 +116,11 @@ button {
 
 <div id="reader"></div>
 
-<!-- COUNT -->
-<div class="row status">
+<div class="row" style="margin-top:8px;">
   <div class="box">MSP: <span id="countMSP">0</span></div>
   <div class="box">Tổng: <span id="countAll">0</span></div>
 </div>
 
-<!-- TABLE -->
 <div class="table">
   <div class="table-header">
     <div class="cell">MSP</div>
@@ -146,12 +137,11 @@ button {
 
 <script>
 
-let gia = "";
-let masp = "";
-let countMSP = 0;
-let countAll = 0;
-let lock = false;
-let dataList = [];
+let gia="", masp="";
+let countMSP=0, countAll=0;
+let dataList=[];
+
+let lock=false; // 🔥 chống spam cam + enter
 
 function isPhone(t){ return /^\d{10}$/.test(t); }
 function isMSP(t){ return /[A-Za-z]/.test(t) && /\d/.test(t); }
@@ -173,7 +163,7 @@ function showToast(msg){
   let t = document.getElementById("toast");
   t.innerText = msg;
   t.classList.add("show");
-  setTimeout(()=> t.classList.remove("show"),1500);
+  setTimeout(()=> t.classList.remove("show"),1200);
 }
 
 // ===== GIÁ =====
@@ -182,7 +172,7 @@ document.getElementById("gia").addEventListener("input", e=>{
   updateUI();
 });
 
-// ===== SCAN =====
+// ===== SCAN INPUT =====
 document.getElementById("scanInput").addEventListener("keydown", e=>{
   if(e.key !== "Enter") return;
   if(lock) return;
@@ -194,7 +184,7 @@ document.getElementById("scanInput").addEventListener("keydown", e=>{
 
   process(text);
 
-  setTimeout(()=> lock=false, 400); // 🔥 delay chống trùng
+  setTimeout(()=> lock=false, 250);
 });
 
 // ===== XỬ LÝ =====
@@ -208,8 +198,8 @@ function process(text){
     if(masp && text !== masp){
       masp = text;
       gia = "";
-      document.getElementById("gia").value = "";
-      countMSP = 0;
+      document.getElementById("gia").value="";
+      countMSP=0;
       showToast("MSP mới → nhập giá");
       updateUI();
       return;
@@ -220,7 +210,7 @@ function process(text){
         showToast("Nhập giá trước");
         return;
       }
-      masp = text;
+      masp=text;
       updateUI();
       return;
     }
@@ -234,17 +224,17 @@ function process(text){
       return;
     }
 
-    let item = {
+    let item={
       masp,
       sdt:text,
       gia,
       time:new Date().toLocaleTimeString()
     };
 
+    // check trùng
     let duplicate = dataList.find(d =>
       d.masp===item.masp &&
-      d.sdt===item.sdt &&
-      d.gia===item.gia
+      d.sdt===item.sdt
     );
 
     if(duplicate){
@@ -257,16 +247,15 @@ function process(text){
     countAll++;
 
     render();
-
     updateUI();
   }
 }
 
 // ===== RENDER =====
 function render(){
-  let html = "";
+  let html="";
   dataList.slice(0,20).forEach(d=>{
-    html += `
+    html+=`
     <div class="row-item">
       <div class="cell">${d.masp}</div>
       <div class="cell">${d.sdt}</div>
@@ -274,25 +263,45 @@ function render(){
       <div class="cell">${d.time}</div>
     </div>`;
   });
-  document.getElementById("data").innerHTML = html;
+  document.getElementById("data").innerHTML=html;
 }
 
 // ===== CAMERA =====
 let cam;
 
 function startCam(){
+
+  if(cam) return;
+
   cam = new Html5Qrcode("reader");
+
   Html5Qrcode.getCameras().then(devices=>{
+
+    let backCam = devices.find(d=>d.label.toLowerCase().includes("back"));
+    let camId = backCam ? backCam.id : devices[devices.length-1].id;
+
     cam.start(
-      devices[devices.length-1].id,
-      { fps:8, qrbox:200 }, // 🔥 giảm lag + tăng nét
-      text => process(text)
+      camId,
+      { fps:10, qrbox:220 },
+      text=>{
+        if(lock) return;
+
+        lock = true;
+        process(text);
+
+        setTimeout(()=> lock=false, 300); // 🔥 delay chống quét liên tục
+      }
     );
   });
 }
 
 function stopCam(){
-  if(cam) cam.stop();
+  if(cam){
+    cam.stop().then(()=>{
+      cam.clear();
+      cam=null;
+    });
+  }
 }
 
 </script>
