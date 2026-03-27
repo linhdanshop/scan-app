@@ -1,68 +1,12 @@
-<!DOCTYPE html>
-<html>
-<head>
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Scan ổn định</title>
-
-<style>
-body { margin:0; background:#f5f5f5; font-family:Arial; }
-.container { max-width:500px; margin:auto; padding:10px; }
-
-input, select {
-  width:100%; padding:16px; margin:6px 0;
-  font-size:20px; border-radius:10px; border:1px solid #ccc;
-}
-
-.status {
-  background:#fff; padding:10px; border-radius:10px;
-  font-size:18px; margin-top:5px;
-}
-
-#log {
-  max-height:200px;
-  overflow:auto;
-  margin-top:10px;
-}
-
-.ok { color:green; }
-.err { color:red; }
-</style>
-</head>
-
-<body>
-
-<div class="container">
-
-<h2>📦 TEST QUÉT</h2>
-
-<input id="gia" placeholder="Nhập giá">
-
-<div class="status" id="status">Chưa có MSP</div>
-
-<input id="scan" placeholder="Quét tại đây..." autofocus>
-
-<div class="status" id="count">Số lượng: 0</div>
-
-<div id="log"></div>
-
-</div>
-
 <script>
 
-// ===== STATE =====
 let gia = 0;
 let masp = "";
 let count = 0;
 
-// chống loạn
-let lastText = "";
-let lastTime = 0;
+let processing = false;
 
 // ===== CHECK =====
-function clean(t){
-  return t.replace(/[\r\n]/g,"").trim();
-}
-
 function isPhone(t){ return /^\d{10}$/.test(t); }
 function isMSP(t){ return /[A-Za-z]/.test(t) && /\d/.test(t); }
 
@@ -70,11 +14,10 @@ function isMSP(t){ return /[A-Za-z]/.test(t) && /\d/.test(t); }
 function log(msg, cls="ok"){
   const el = document.getElementById("log");
   el.innerHTML = `<div class="${cls}">${msg}</div>` + el.innerHTML;
-  if(el.children.length > 10) el.removeChild(el.lastChild);
 }
 
 // ===== GIÁ =====
-document.getElementById("gia").oninput = e=>{
+document.getElementById("gia").addEventListener("change", e=>{
   let v = e.target.value.trim();
   if(/^\d+$/.test(v)){
     gia = parseInt(v)*1000;
@@ -83,34 +26,30 @@ document.getElementById("gia").oninput = e=>{
     update();
     log("💰 OK → quét MSP");
   }
-};
-
-// ===== QUÉT =====
-document.getElementById("scan").addEventListener("input", e=>{
-
-  setTimeout(()=>{
-    let text = clean(e.target.value);
-    e.target.value = "";
-
-    if(!text) return;
-
-    let now = Date.now();
-
-    // CHỐNG DOUBLE
-    if(text === lastText && now - lastTime < 800){
-      return;
-    }
-
-    lastText = text;
-    lastTime = now;
-
-    handle(text);
-
-  }, 60);
-
 });
 
+// ===== NHẬP =====
+document.getElementById("scanInput").addEventListener("keydown", e=>{
+
+  if(e.key !== "Enter") return;
+
+  if(processing) return; // 🔥 CHỐNG LOẠN
+  processing = true;
+
+  let text = e.target.value.trim();
+  e.target.value = "";
+
+  handle(text);
+
+  setTimeout(()=>{
+    processing = false;
+  }, 200); // khóa 200ms
+});
+
+// ===== XỬ LÝ =====
 function handle(text){
+
+  if(!text) return;
 
   if(!gia){
     return log("❌ Nhập giá trước","err");
@@ -150,12 +89,4 @@ function update(){
   document.getElementById("count").innerText = "Số lượng: "+count;
 }
 
-// focus
-setInterval(()=>{
-  document.getElementById("scan").focus();
-},300);
-
 </script>
-
-</body>
-</html>
