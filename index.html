@@ -1,4 +1,51 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SCAN FIX</title>
+
+<style>
+body { font-family: Arial; max-width:500px; margin:auto; padding:10px; background:#f5f5f5; }
+
+input {
+  width:100%;
+  padding:16px;
+  font-size:20px;
+  margin:6px 0;
+  border-radius:10px;
+  border:1px solid #ccc;
+}
+
+.status {
+  background:#fff;
+  padding:10px;
+  border-radius:10px;
+  margin-top:5px;
+}
+
+#log { margin-top:10px; }
+.ok { color:green; }
+.err { color:red; }
+</style>
+</head>
+
+<body>
+
+<h2>📦 SCAN FIX</h2>
+
+<input id="gia" placeholder="Nhập giá rồi Enter">
+
+<div class="status" id="status">Chưa có MSP</div>
+
+<input id="scanInput" placeholder="Nhập MSP hoặc SĐT rồi Enter">
+
+<div class="status" id="count">Số lượng: 0</div>
+
+<div id="log"></div>
+
 <script>
+
+window.onload = function(){
 
 let gia = 0;
 let masp = "";
@@ -15,12 +62,12 @@ function log(msg, cls="ok"){
   el.innerHTML = `<div class="${cls}">${msg}</div>` + el.innerHTML;
 }
 
-// ===== NHẬP GIÁ (KHÔNG AUTO) =====
-document.getElementById("gia").addEventListener("keydown", e=>{
+// ===== GIÁ =====
+document.getElementById("gia").addEventListener("keydown", function(e){
 
   if(e.key !== "Enter") return;
 
-  let v = e.target.value.trim();
+  let v = this.value.trim();
 
   if(!/^\d+$/.test(v)){
     log("❌ Giá sai","err");
@@ -37,36 +84,34 @@ document.getElementById("gia").addEventListener("keydown", e=>{
   update();
 });
 
-
-// ===== NHẬP SCAN =====
-document.getElementById("scanInput").addEventListener("keydown", e=>{
+// ===== SCAN =====
+document.getElementById("scanInput").addEventListener("keydown", function(e){
 
   if(e.key !== "Enter") return;
 
   if(lock) return;
   lock = true;
 
-  let text = e.target.value.trim();
-  e.target.value = "";
+  let text = this.value.trim();
+  this.value = "";
 
   handle(text);
 
-  setTimeout(()=> lock = false, 150);
+  setTimeout(function(){
+    lock = false;
+  }, 150);
 });
-
 
 // ===== XỬ LÝ =====
 function handle(text){
 
   if(!text) return;
 
-  // ❌ CHƯA NHẬP GIÁ → CHẶN
   if(!gia){
     log("❌ Nhập giá trước","err");
     return;
   }
 
-  // ===== MSP =====
   if(!masp){
 
     if(isMSP(text)){
@@ -82,7 +127,6 @@ function handle(text){
     }
   }
 
-  // ===== SĐT =====
   if(masp){
 
     if(isPhone(text)){
@@ -101,10 +145,14 @@ function handle(text){
   log("❌ Sai dữ liệu","err");
 }
 
-
 // ===== UI =====
 function update(){
   document.getElementById("count").innerText = "Số lượng: " + count;
 }
 
+};
+
 </script>
+
+</body>
+</html>
