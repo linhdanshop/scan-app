@@ -3,49 +3,97 @@
 <html>
 <head>
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Quét đơn</title>
+<title>Quét đơn PRO</title>
 
 <style>
-body { font-family:Arial; background:#f5f5f5; padding:10px; max-width:500px; margin:auto; }
-input, select {
-  width:100%; padding:16px; font-size:20px;
-  margin:6px 0; border-radius:10px; border:1px solid #ccc;
+body { margin:0; background:#f5f5f5; font-family:Arial; }
+.container { max-width:500px; margin:auto; padding:10px; }
+
+input {
+  width:100%; padding:16px; margin:6px 0;
+  font-size:20px; border-radius:10px; border:1px solid #ccc;
 }
-#log { margin-top:10px; max-height:200px; overflow:auto; font-size:16px; }
-.ok{color:green;} .err{color:red;} .warn{color:orange;}
+
+button {
+  width:100%; padding:16px; margin:6px 0;
+  font-size:20px; border:none; border-radius:12px;
+  color:#fff;
+}
+
+.btn-blue { background:#007bff; }
+.btn-red { background:red; }
+
+.status {
+  background:#fff; padding:10px; border-radius:10px;
+  font-size:18px; margin-top:5px;
+}
+
+#log {
+  max-height:220px;
+  overflow:auto;
+  font-size:16px;
+  margin-top:10px;
+}
+
+.ok { color:green; }
+.err { color:red; }
 </style>
 
 </head>
 
 <body>
 
+<div class="container">
+
 <h2>📦 QUÉT ĐƠN</h2>
 
-<select id="nv">
-  <option value="">Chọn nhân viên</option>
-  <option>Nhung</option>
-  <option>Hieu</option>
-</select>
+<!-- LOGIN -->
+
+<input id="manv" placeholder="Nhập mã nhân viên">
 
 <input id="gia" placeholder="Nhập giá">
 
-<input id="scan" placeholder="Quét tại đây" autofocus>
+<div class="status" id="status">Chưa có MSP</div>
 
-<div id="status">Chưa có MSP</div>
-<div id="count">SL: 0</div>
+<input id="scanInput" placeholder="Quét tại đây..." autofocus>
+
+<div class="status" id="count">Số lượng: 0</div>
 
 <div id="log"></div>
+
+</div>
 
 <script>
 
 // ===== API =====
-const API = "https://script.google.com/macros/s/AKfycbw-rjw-aLrULI_CF8pV12oDnaVpEnsSpmUFlhexg6DzQ-cWm-43FVPYiYScPbmEurN71w/exec";
+const API = "https://script.google.com/macros/s/XXX/exec";
+
+// ===== NHÂN VIÊN =====
+const USERS = {
+  "111": "Nhung",
+  "222": "Hieu"
+};
+
+// ===== LOAD NV =====
+let currentNV = localStorage.getItem("nv") || "";
+if(currentNV){
+  document.getElementById("manv").value = currentNV;
+}
 
 // ===== BIẾN =====
-let gia = 0;
-let masp = "";
+let lastGia = 0;
+let lastMasp = "";
 let count = 0;
-let lock = false; // chống scan loạn
+
+let lastScan = "";
+let lastTime = 0;
+
+// ===== VOICE =====
+function speak(text){
+  let msg = new SpeechSynthesisUtterance(text);
+  msg.lang = "vi-VN";
+  speechSynthesis.speak(msg);
+}
 
 // ===== CHECK =====
 function isPhone(t){ return /^\d{10}$/.test(t); }
@@ -58,66 +106,94 @@ function log(msg, cls="ok"){
   if(el.children.length > 15) el.removeChild(el.lastChild);
 }
 
-// ===== NHẬP GIÁ =====
+// ===== GIÁ =====
 document.getElementById("gia").addEventListener("input", e=>{
   let v = e.target.value.trim();
   if(/^\d+$/.test(v)){
-    gia = parseInt(v)*1000;
-    masp = "";
+    lastGia = parseInt(v)*1000;
+    lastMasp = "";
     count = 0;
     update();
-    log("💰 Giá OK → quét MSP");
+    log("💰 Nhập giá → quét MSP");
   }
 });
 
 // ===== QUÉT =====
-document.getElementById("scan").addEventListener("keydown", e=>{
+document.getElementById("scanInput").addEventListener("keydown", e=>{
   if(e.key !== "Enter") return;
 
   let text = e.target.value.trim();
   e.target.value = "";
 
-  if(lock) return; // chặn spam
-  lock = true;
-  setTimeout(()=>lock=false, 300);
+  // ===== CHỐNG LOẠN =====
+  let now = Date.now();
 
-  handle(text);
+  if(text === lastScan && now - lastTime < 500){
+    return; // bỏ scan trùng
+  }
+
+  lastScan = text;
+  lastTime = now;
+
+  if(!text) return;
+
+  handleScan(text);
 });
 
-function handle(text){
+function handleScan(text){
 
-  let nv = document.getElementById("nv").value;
+  let manv = document.getElementById("manv").value.trim();
+  let nv = USERS[manv];
 
-  if(!nv){ return err("Chọn nhân viên"); }
-  if(!gia){ return err("Nhập giá"); }
+  if(!nv){
+    log("❌ Mã NV sai","err");
+    speak("Sai mã nhân viên");
+    return;
+  }
+
+  // lưu lại
+  localStorage.setItem("nv", manv);
+
+  if(!lastGia){
+    log("❌ Nhập giá trước","err");
+    speak("Nhập giá trước");
+    return;
+  }
 
   // ===== MSP =====
-  if(!masp){
+  if(!lastMasp){
+
     if(isMSP(text)){
-      masp = text;
-      document.getElementById("status").innerText = "MSP: "+masp;
-      ok("📦 "+masp);
+      lastMasp = text;
+      document.getElementById("status").innerText = "MSP: "+lastMasp;
+      log("📦 "+lastMasp);
       return;
     }
+
     if(isPhone(text)){
-      return err("Phải quét MSP trước");
+      log("❌ Quét MSP trước","err");
+      speak("Quét mã sản phẩm trước");
+      return;
     }
   }
 
   // ===== SĐT =====
-  if(masp){
+  if(lastMasp){
 
     if(isPhone(text)){
       count++;
       update();
 
-      ok(`✔ ${masp} | ${text}`);
+      log(`✔ ${lastMasp} | ${text}`);
 
       fetch(API,{
         method:"POST",
         body:JSON.stringify({
           id:Date.now(),
-          nv, masp, sdt:text, gia
+          nhanvien:nv,
+          masp:lastMasp,
+          sdt:text,
+          gia:lastGia
         })
       });
 
@@ -125,25 +201,23 @@ function handle(text){
     }
 
     if(isMSP(text)){
-      return err("Đang quét SĐT rồi");
+      log("❌ Đang quét SĐT","err");
+      speak("Đang quét số điện thoại");
+      return;
     }
   }
 
-  err("Sai dữ liệu");
+  log("❌ Sai dữ liệu","err");
 }
 
 // ===== UI =====
 function update(){
-  document.getElementById("count").innerText = "SL: "+count;
+  document.getElementById("count").innerText = "Số lượng: "+count;
 }
-
-// ===== RESET =====
-function ok(msg){ log(msg,"ok"); }
-function err(msg){ log("❌ "+msg,"err"); }
 
 // ===== AUTO FOCUS =====
 setInterval(()=>{
-  document.getElementById("scan").focus();
+  document.getElementById("scanInput").focus();
 },300);
 
 </script>
