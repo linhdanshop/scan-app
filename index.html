@@ -1,306 +1,298 @@
 <!DOCTYPE html>
-
-<html lang="vi">
+<html>
 <head>
-<meta charset="UTF-8">
-<title>QUÉT ĐƠN PRO</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SCAN PRO UI</title>
 
 <script src="https://unpkg.com/html5-qrcode"></script>
 
 <style>
-body{
-  font-family:Arial;
-  background:#f5f5f5;
-  margin:0;
-}
+body { margin:0; font-family:Arial; background:#f2f2f2; }
+.container { max-width:520px; margin:auto; padding:10px; }
 
-/* FIX KHÔNG VỠ UI */
-.container{
-  max-width:600px;
-  margin:auto;
-  padding:10px;
-}
+.row { display:flex; gap:8px; }
 
-h2{text-align:center;}
-
-.row{display:flex; gap:10px; margin-bottom:10px;}
-
-input{
+input {
   flex:1;
   padding:16px;
-  font-size:20px;
+  font-size:18px;
   border-radius:10px;
   border:1px solid #ccc;
 }
 
-.box{
+.box {
   flex:1;
   background:#fff;
-  padding:16px;
+  padding:14px;
   border-radius:10px;
-  font-weight:bold;
-  border:2px solid #ddd;
-  display:flex;
-  align-items:center;
-  justify-content:center;
-}
-
-#giaBox{color:red;}
-#mspBox{
-  font-size:24px;
-  border:2px solid #007bff;
-  margin-bottom:10px;
-}
-
-#countAll{color:red; font-weight:bold;}
-
-button{
-  flex:1;
-  padding:15px;
   font-size:18px;
+  font-weight:bold;
+}
+
+.red { color:red; }
+.blue { color:#007bff; }
+
+.okmark { color:green; margin-left:5px; }
+
+button {
+  flex:1;
+  padding:14px;
+  font-size:16px;
   border:none;
   border-radius:10px;
   color:#fff;
 }
 
-.cam{background:#007bff;}
-.stop{background:red;}
+.btn-blue { background:#007bff; }
+.btn-red { background:#e53935; }
 
-.table{
+.status { margin-top:8px; }
+
+.table {
+  margin-top:10px;
   background:#fff;
   border-radius:10px;
-  padding:10px;
-  margin-top:10px;
+  padding:8px;
+  font-size:14px;
 }
 
-.rowItem{
+.table-header {
+  font-weight:bold;
   display:flex;
-  border-bottom:1px solid #eee;
-  padding:6px 0;
+  border-bottom:1px solid #ddd;
+  padding-bottom:5px;
 }
 
-.cell{flex:1; font-size:14px;}
+.row-item {
+  display:flex;
+  padding:4px 0;
+  border-bottom:1px solid #eee;
+}
 
-.toast{
+.cell { flex:1; }
+
+.warn { color:orange; }
+
+.toast {
   position:fixed;
-  top:20px;
+  bottom:20px;
   left:50%;
   transform:translateX(-50%);
-  background:#000;
+  background:#333;
   color:#fff;
   padding:10px 20px;
   border-radius:20px;
-  display:none;
-  z-index:9999;
+  opacity:0;
+  transition:0.3s;
 }
 
-/* CAMERA FULL */
-#reader{
-  position:fixed;
-  top:0;
-  left:0;
-  width:100%;
-  height:100%;
-  background:#000;
-  z-index:9999;
-  display:none;
-}
+.toast.show { opacity:1; }
 
-#readerBox{
-  width:100%;
-  height:100%;
-}
-
-#closeCam{
-  position:absolute;
-  top:20px;
-  right:20px;
-  background:red;
-  color:#fff;
-  padding:12px;
-  border-radius:50%;
-  font-size:18px;
-  z-index:10000;
+#reader {
+  margin-top:10px;
+  max-height:180px; /* 🔥 camera nhỏ lại */
+  overflow:hidden;
 }
 </style>
-
 </head>
 
 <body>
 
 <div class="container">
 
-<h2>📦 QUÉT ĐƠN PRO</h2>
+<h3 style="text-align:center">📦 QUÉT ĐƠN PRO</h3>
 
+<!-- GIÁ + MSP -->
 <div class="row">
-  <input id="gia" placeholder="Nhập giá">
-  <div class="box" id="giaBox">--</div>
-</div>
-
-<div class="box" id="mspBox">MSP: --</div>
-
-<input id="scan" placeholder="Quét MSP hoặc SĐT">
-
-<div class="row">
-  <button class="cam" onclick="startCam()">📷 Cam</button>
-  <button class="stop" onclick="stopCam()">⛔ Tắt</button>
+  <input id="gia" placeholder="Giá">
+  <div class="box red" id="giaBox">Giá: --</div>
 </div>
 
 <div class="row">
+  <div class="box blue" id="mspBox">MSP: --</div>
+</div>
+
+<!-- INPUT -->
+<input id="scanInput" placeholder="Quét MSP hoặc SĐT">
+
+<!-- CAMERA -->
+<div class="row">
+  <button class="btn-blue" onclick="startCam()">📷 Cam</button>
+  <button class="btn-red" onclick="stopCam()">⛔ Tắt</button>
+</div>
+
+<div id="reader"></div>
+
+<!-- COUNT -->
+<div class="row status">
   <div class="box">MSP: <span id="countMSP">0</span></div>
   <div class="box">Tổng: <span id="countAll">0</span></div>
 </div>
 
-<div class="table" id="list"></div>
+<!-- TABLE -->
+<div class="table">
+  <div class="table-header">
+    <div class="cell">MSP</div>
+    <div class="cell">SĐT</div>
+    <div class="cell">Giá</div>
+    <div class="cell">Time</div>
+  </div>
+  <div id="data"></div>
+</div>
 
 </div>
 
-<!-- CAMERA -->
-
-<div id="reader">
-  <div id="closeCam" onclick="stopCam()">✖</div>
-  <div id="readerBox"></div>
-</div>
-
-<div class="toast" id="toast"></div>
+<div id="toast" class="toast"></div>
 
 <script>
 
-let gia="", masp="";
-let countMSP=0, countAll=0;
-let data=[];
-let cam=null;
-let lastScan=""; // chống quét trùng nhanh
+let gia = "";
+let masp = "";
+let countMSP = 0;
+let countAll = 0;
+let lock = false;
+let dataList = [];
 
-document.getElementById("gia").addEventListener("input",e=>{
-  gia=e.target.value.trim();
-  updateUI();
-});
+function isPhone(t){ return /^\d{10}$/.test(t); }
+function isMSP(t){ return /[A-Za-z]/.test(t) && /\d/.test(t); }
 
-document.getElementById("scan").addEventListener("keydown",e=>{
-  if(e.key==="Enter"){
-    handleInput(e.target.value.trim());
-    e.target.value="";
-  }
-});
-
-function handleInput(val){
-
-  if(!val) return;
-
-  // chống quét trùng liên tục
-  if(val===lastScan) return;
-  lastScan=val;
-  setTimeout(()=>lastScan="",500);
-
-  if(!gia){
-    showToast("Nhập giá trước");
-    return;
-  }
-
-  if(!masp){
-    masp=val;
-    countMSP=0;
-    updateUI();
-    showToast("✔ MSP");
-    return;
-  }
-
-  let obj={
-    msp:masp,
-    sdt:val,
-    gia:gia,
-    time:new Date().toLocaleTimeString()
-  };
-
-  data.unshift(obj);
-
-  countMSP++;
-  countAll++;
-
-  render();
-  updateUI();
-  showToast("✔ OK");
-}
-
-function render(){
-
-  let html=`
-  <div class="rowItem">
-    <b class="cell">MSP</b>
-    <b class="cell">SĐT</b>
-    <b class="cell">Giá</b>
-    <b class="cell">Time</b>
-  </div>`;
-
-  for(let i=0;i<data.length;i++){
-    let d=data[i];
-
-    html+=`
-    <div class="rowItem">
-      <div class="cell">${d.msp}</div>
-      <div class="cell">${d.sdt}</div>
-      <div class="cell">${d.gia*1000}</div>
-      <div class="cell">${d.time}</div>
-    </div>`;
-  }
-
-  document.getElementById("list").innerHTML=html;
-}
-
+// ===== UI =====
 function updateUI(){
-
   document.getElementById("giaBox").innerHTML =
-    gia ? gia+' ✔' : "--";
+    gia ? "Giá: "+gia+" ✔" : "Giá: --";
 
   document.getElementById("mspBox").innerHTML =
-    masp ? masp+' ✔' : "MSP: --";
+    masp ? "MSP: "+masp+" ✔" : "MSP: --";
 
-  document.getElementById("countMSP").innerText=countMSP;
-  document.getElementById("countAll").innerText=countAll;
+  document.getElementById("countMSP").innerText = countMSP;
+  document.getElementById("countAll").innerText = countAll;
 }
 
+// ===== TOAST =====
 function showToast(msg){
-  let t=document.getElementById("toast");
-  t.innerText=msg;
-  t.style.display="block";
-  setTimeout(()=>t.style.display="none",1000);
+  let t = document.getElementById("toast");
+  t.innerText = msg;
+  t.classList.add("show");
+  setTimeout(()=> t.classList.remove("show"),1500);
 }
 
-/* CAMERA CHUẨN */
-function startCam(){
+// ===== GIÁ =====
+document.getElementById("gia").addEventListener("input", e=>{
+  gia = e.target.value.trim();
+  updateUI();
+});
 
-  document.getElementById("reader").style.display="block";
+// ===== SCAN =====
+document.getElementById("scanInput").addEventListener("keydown", e=>{
+  if(e.key !== "Enter") return;
+  if(lock) return;
 
-  cam = new Html5Qrcode("readerBox");
+  lock = true;
 
-  Html5Qrcode.getCameras().then(devices=>{
+  let text = e.target.value.trim();
+  e.target.value = "";
 
-    // ưu tiên camera sau
-    let backCam = devices.find(d=>d.label.toLowerCase().includes("back"));
-    let camId = backCam ? backCam.id : devices[0].id;
+  process(text);
 
-    cam.start(
-      camId,
-      {
-        fps:20,
-        qrbox:350
-      },
-      txt=>{
-        handleInput(txt);
+  setTimeout(()=> lock=false, 400); // 🔥 delay chống trùng
+});
+
+// ===== XỬ LÝ =====
+function process(text){
+
+  if(!text) return;
+
+  // MSP
+  if(isMSP(text)){
+
+    if(masp && text !== masp){
+      masp = text;
+      gia = "";
+      document.getElementById("gia").value = "";
+      countMSP = 0;
+      showToast("MSP mới → nhập giá");
+      updateUI();
+      return;
+    }
+
+    if(!masp){
+      if(!gia){
+        showToast("Nhập giá trước");
+        return;
       }
+      masp = text;
+      updateUI();
+      return;
+    }
+  }
+
+  // SĐT
+  if(isPhone(text)){
+
+    if(!masp || !gia){
+      showToast("Thiếu MSP hoặc giá");
+      return;
+    }
+
+    let item = {
+      masp,
+      sdt:text,
+      gia,
+      time:new Date().toLocaleTimeString()
+    };
+
+    let duplicate = dataList.find(d =>
+      d.masp===item.masp &&
+      d.sdt===item.sdt &&
+      d.gia===item.gia
+    );
+
+    if(duplicate){
+      showToast("⚠️ Trùng SĐT");
+    }
+
+    dataList.unshift(item);
+
+    countMSP++;
+    countAll++;
+
+    render();
+
+    updateUI();
+  }
+}
+
+// ===== RENDER =====
+function render(){
+  let html = "";
+  dataList.slice(0,20).forEach(d=>{
+    html += `
+    <div class="row-item">
+      <div class="cell">${d.masp}</div>
+      <div class="cell">${d.sdt}</div>
+      <div class="cell">${d.gia}</div>
+      <div class="cell">${d.time}</div>
+    </div>`;
+  });
+  document.getElementById("data").innerHTML = html;
+}
+
+// ===== CAMERA =====
+let cam;
+
+function startCam(){
+  cam = new Html5Qrcode("reader");
+  Html5Qrcode.getCameras().then(devices=>{
+    cam.start(
+      devices[devices.length-1].id,
+      { fps:8, qrbox:200 }, // 🔥 giảm lag + tăng nét
+      text => process(text)
     );
   });
 }
 
 function stopCam(){
-  document.getElementById("reader").style.display="none";
-
-  if(cam){
-    cam.stop().then(()=>{
-      cam.clear();
-    });
-  }
+  if(cam) cam.stop();
 }
 
 </script>
