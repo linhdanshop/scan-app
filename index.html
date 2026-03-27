@@ -36,12 +36,14 @@ input{
   border:2px solid #ddd;
 }
 
+#giaBox{color:red;}
 #mspBox{
   font-size:22px;
   border:2px solid #007bff;
+  margin-bottom:10px;
 }
 
-#countAll{color:red;}
+#countAll{color:red; font-weight:bold;}
 
 button{
   flex:1;
@@ -65,7 +67,7 @@ button{
 .rowItem{
   display:flex;
   border-bottom:1px solid #eee;
-  padding:5px 0;
+  padding:6px 0;
 }
 
 .cell{flex:1;}
@@ -80,8 +82,10 @@ button{
   padding:10px 20px;
   border-radius:20px;
   display:none;
+  z-index:9999;
 }
 
+/* CAMERA */
 #reader{
   position:fixed;
   top:0;
@@ -89,8 +93,13 @@ button{
   width:100%;
   height:100%;
   background:#000;
-  z-index:999;
+  z-index:9999;
   display:none;
+}
+
+#readerBox{
+  width:100%;
+  height:100%;
 }
 
 #closeCam{
@@ -99,10 +108,10 @@ button{
   right:20px;
   background:red;
   color:#fff;
-  padding:10px;
+  padding:12px;
   border-radius:50%;
   font-size:18px;
-  z-index:1000;
+  z-index:10000;
 }
 </style>
 
@@ -113,8 +122,8 @@ button{
 <h2>📦 QUÉT ĐƠN PRO</h2>
 
 <div class="row">
-<input id="gia" placeholder="Nhập giá">
-<div class="box" id="giaBox">--</div>
+  <input id="gia" placeholder="Nhập giá">
+  <div class="box" id="giaBox">--</div>
 </div>
 
 <div class="box" id="mspBox">MSP: --</div>
@@ -122,19 +131,22 @@ button{
 <input id="scan" placeholder="Quét MSP hoặc SĐT">
 
 <div class="row">
-<button class="cam" onclick="startCam()">📷 Cam</button>
-<button class="stop" onclick="stopCam()">⛔ Tắt</button>
+  <button class="cam" onclick="startCam()">📷 Cam</button>
+  <button class="stop" onclick="stopCam()">⛔ Tắt</button>
 </div>
 
 <div class="row">
-<div class="box">MSP: <span id="countMSP">0</span></div>
-<div class="box">Tổng: <span id="countAll">0</span></div>
+  <div class="box">MSP: <span id="countMSP">0</span></div>
+  <div class="box">Tổng: <span id="countAll">0</span></div>
 </div>
 
 <div class="table" id="list"></div>
 
+<!-- CAMERA -->
+
 <div id="reader">
-<div id="closeCam" onclick="stopCam()">✖</div>
+  <div id="closeCam" onclick="stopCam()">✖</div>
+  <div id="readerBox"></div>
 </div>
 
 <div class="toast" id="toast"></div>
@@ -144,34 +156,42 @@ button{
 let gia="", masp="";
 let countMSP=0, countAll=0;
 let data=[];
-let cam;
+let cam=null;
 
+// nhập giá
 document.getElementById("gia").addEventListener("input",e=>{
-  gia=e.target.value;
+  gia=e.target.value.trim();
   updateUI();
 });
 
+// scan / enter
 document.getElementById("scan").addEventListener("keydown",e=>{
   if(e.key==="Enter"){
-    process(e.target.value.trim());
+    handleInput(e.target.value.trim());
     e.target.value="";
   }
 });
 
-function process(val){
+function handleInput(val){
 
+  if(!val) return;
+
+  // chưa có giá
   if(!gia){
     showToast("Nhập giá trước");
     return;
   }
 
+  // chưa có MSP -> lấy MSP (KHÔNG cần enter)
   if(!masp){
     masp=val;
     countMSP=0;
     updateUI();
+    showToast("✔ Đã nhận MSP");
     return;
   }
 
+  // đã có MSP -> ghi SĐT
   let obj={
     msp:masp,
     sdt:val,
@@ -180,6 +200,7 @@ function process(val){
   };
 
   data.unshift(obj);
+
   countMSP++;
   countAll++;
 
@@ -188,8 +209,15 @@ function process(val){
   showToast("✔ Đã ghi nhận");
 }
 
+// render bảng
 function render(){
-  let html=`<div class="rowItem"><b class="cell">MSP</b><b class="cell">SĐT</b><b class="cell">Giá</b><b class="cell">Time</b></div>`;
+  let html=`
+  <div class="rowItem">
+    <b class="cell">MSP</b>
+    <b class="cell">SĐT</b>
+    <b class="cell">Giá</b>
+    <b class="cell">Time</b>
+  </div>`;
 
   data.forEach(d=>{
     html+=`
@@ -204,36 +232,40 @@ function render(){
   document.getElementById("list").innerHTML=html;
 }
 
+// update UI
 function updateUI(){
+
   document.getElementById("giaBox").innerHTML =
-    gia ? gia+' ✔' : "--";
+    gia ? gia + ' ✔' : "--";
 
   document.getElementById("mspBox").innerHTML =
-    masp ? masp+' ✔' : "MSP: --";
+    masp ? masp + ' ✔' : "MSP: --";
 
-  document.getElementById("countMSP").innerText=countMSP;
-  document.getElementById("countAll").innerText=countAll;
+  document.getElementById("countMSP").innerText = countMSP;
+  document.getElementById("countAll").innerText = countAll;
 }
 
+// toast
 function showToast(msg){
   let t=document.getElementById("toast");
   t.innerText=msg;
   t.style.display="block";
-  setTimeout(()=>t.style.display="none",1500);
+  setTimeout(()=>t.style.display="none",1200);
 }
 
+// CAMERA
 function startCam(){
 
   document.getElementById("reader").style.display="block";
 
-  cam=new Html5Qrcode("reader");
+  cam = new Html5Qrcode("readerBox");
 
   Html5Qrcode.getCameras().then(devices=>{
     cam.start(
       devices[0].id,
-      {fps:15, qrbox:300},
+      { fps: 15, qrbox: 300 },
       txt=>{
-        process(txt);
+        handleInput(txt);
       }
     );
   });
@@ -241,7 +273,12 @@ function startCam(){
 
 function stopCam(){
   document.getElementById("reader").style.display="none";
-  if(cam) cam.stop();
+
+  if(cam){
+    cam.stop().then(()=>{
+      cam.clear();
+    });
+  }
 }
 
 </script>
