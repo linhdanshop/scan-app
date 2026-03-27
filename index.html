@@ -3,243 +3,148 @@
 <html>
 <head>
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Quét đơn PRO</title>
-<script src="https://unpkg.com/html5-qrcode"></script>
+<title>Quét đơn</title>
 
 <style>
-body { margin:0; background:#f5f5f5; font-family:Arial; }
-.container { max-width:500px; margin:auto; padding:10px; }
-
+body { font-family:Arial; background:#f5f5f5; padding:10px; max-width:500px; margin:auto; }
 input, select {
-  width:100%; padding:16px; margin:6px 0;
-  font-size:20px; border-radius:10px; border:1px solid #ccc;
+  width:100%; padding:16px; font-size:20px;
+  margin:6px 0; border-radius:10px; border:1px solid #ccc;
 }
-
-button {
-  width:100%; padding:16px; margin:6px 0;
-  font-size:20px; border:none; border-radius:12px;
-  color:#fff;
-}
-
-.btn-blue { background:#007bff; }
-.btn-red { background:red; }
-.btn-orange { background:orange; }
-
-.status {
-  background:#fff; padding:10px; border-radius:10px;
-  font-size:18px; margin-top:5px;
-}
-
-#log {
-  max-height:220px;
-  overflow:auto;
-  font-size:16px;
-  margin-top:10px;
-}
-
-.ok { color:green; }
-.err { color:red; }
-.warn { color:orange; }
+#log { margin-top:10px; max-height:200px; overflow:auto; font-size:16px; }
+.ok{color:green;} .err{color:red;} .warn{color:orange;}
 </style>
 
 </head>
 
 <body>
 
-<div class="container">
+<h2>📦 QUÉT ĐƠN</h2>
 
-<h2>📦 QUÉT ĐƠN PRO</h2>
-
-<select id="nhanvien">
+<select id="nv">
   <option value="">Chọn nhân viên</option>
-  <option value="Nhung">Nhung</option>
-  <option value="Hieu">Hieu</option>
+  <option>Nhung</option>
+  <option>Hieu</option>
 </select>
 
-<input id="gia" placeholder="Nhập giá (vd: 157)">
+<input id="gia" placeholder="Nhập giá">
 
-<div class="status" id="status">Chưa có MSP</div>
+<input id="scan" placeholder="Quét tại đây" autofocus>
 
-<input id="scanInput" placeholder="Quét tại đây..." autofocus>
-
-<button class="btn-blue" onclick="startCamera()">📷 Camera</button> <button class="btn-red" onclick="stopCamera()">⛔ Dừng</button> <button class="btn-orange" onclick="resetAll()">🔄 Đổi đơn</button>
-
-<div id="reader"></div>
-
-<div class="status" id="count">Số lượng: 0</div>
-<div class="status" id="staffCount">NV: 0</div>
+<div id="status">Chưa có MSP</div>
+<div id="count">SL: 0</div>
 
 <div id="log"></div>
 
-</div>
-
 <script>
 
+// ===== API =====
 const API = "https://script.google.com/macros/s/AKfycbw-rjw-aLrULI_CF8pV12oDnaVpEnsSpmUFlhexg6DzQ-cWm-43FVPYiYScPbmEurN71w/exec";
 
-let lastGia = "";
-let lastMasp = "";
+// ===== BIẾN =====
+let gia = 0;
+let masp = "";
 let count = 0;
-let staffStats = {};
+let lock = false; // chống scan loạn
 
-const okSound = new Audio("https://actions.google.com/sounds/v1/cartoon/wood_plank_flicks.ogg");
-const errSound = new Audio("https://actions.google.com/sounds/v1/alarms/beep_short.ogg");
-
+// ===== CHECK =====
 function isPhone(t){ return /^\d{10}$/.test(t); }
 function isMSP(t){ return /[A-Za-z]/.test(t) && /\d/.test(t); }
 
-function logMsg(msg, cls="ok"){
-  const log = document.getElementById("log");
-  log.innerHTML = `<div class="${cls}">${msg}</div>` + log.innerHTML;
-
-  if(log.children.length > 15){
-    log.removeChild(log.lastChild);
-  }
+// ===== LOG =====
+function log(msg, cls="ok"){
+  const el = document.getElementById("log");
+  el.innerHTML = `<div class="${cls}">${msg}</div>` + el.innerHTML;
+  if(el.children.length > 15) el.removeChild(el.lastChild);
 }
 
+// ===== NHẬP GIÁ =====
 document.getElementById("gia").addEventListener("input", e=>{
   let v = e.target.value.trim();
-
   if(/^\d+$/.test(v)){
-    lastGia = parseInt(v) * 1000;
-    lastMasp = "";
+    gia = parseInt(v)*1000;
+    masp = "";
     count = 0;
-
-    updateUI();
-    logMsg("💰 Giá: " + lastGia + " → quét MSP");
-    okSound.play();
+    update();
+    log("💰 Giá OK → quét MSP");
   }
 });
 
-document.getElementById("scanInput").addEventListener("keydown", e=>{
-  if(e.key === "Enter"){
-    let text = e.target.value.trim();
-    e.target.value = "";
-    handleScan(text);
-  }
+// ===== QUÉT =====
+document.getElementById("scan").addEventListener("keydown", e=>{
+  if(e.key !== "Enter") return;
+
+  let text = e.target.value.trim();
+  e.target.value = "";
+
+  if(lock) return; // chặn spam
+  lock = true;
+  setTimeout(()=>lock=false, 300);
+
+  handle(text);
 });
 
-function handleScan(text){
+function handle(text){
 
-  const nv = document.getElementById("nhanvien").value;
+  let nv = document.getElementById("nv").value;
 
-  if(!nv){ error("Chọn nhân viên"); return; }
-  if(!lastGia){ error("Nhập giá"); return; }
+  if(!nv){ return err("Chọn nhân viên"); }
+  if(!gia){ return err("Nhập giá"); }
 
-  if(!lastMasp){
-
+  // ===== MSP =====
+  if(!masp){
     if(isMSP(text)){
-      lastMasp = text;
-      document.getElementById("status").innerText = "MSP: " + lastMasp;
-      success("📦 " + lastMasp);
+      masp = text;
+      document.getElementById("status").innerText = "MSP: "+masp;
+      ok("📦 "+masp);
       return;
     }
-
     if(isPhone(text)){
-      error("Phải quét MSP trước");
-      return;
+      return err("Phải quét MSP trước");
     }
   }
 
-  if(lastMasp){
+  // ===== SĐT =====
+  if(masp){
 
     if(isPhone(text)){
-
       count++;
-      staffStats[nv] = (staffStats[nv] || 0) + 1;
+      update();
 
-      updateUI();
+      ok(`✔ ${masp} | ${text}`);
 
-      success(`✔ ${lastMasp} | ${text}`);
-
-      fetch(API, {
-        method: "POST",
-        body: JSON.stringify({
-          id: Date.now(),
-          nhanvien: nv,
-          masp: lastMasp,
-          sdt: text,
-          gia: lastGia,
-          time: new Date().toISOString()
+      fetch(API,{
+        method:"POST",
+        body:JSON.stringify({
+          id:Date.now(),
+          nv, masp, sdt:text, gia
         })
-      })
-      .then(res => res.json())
-      .then(r => {
-        if(r.duplicate){
-          logMsg("⚠️ Trùng SĐT trong MSP", "warn");
-          errSound.play();
-        }
       });
 
       return;
     }
 
     if(isMSP(text)){
-      error("Đang quét SĐT");
-      return;
+      return err("Đang quét SĐT rồi");
     }
   }
 
-  error("Sai dữ liệu");
+  err("Sai dữ liệu");
 }
 
-function updateUI(){
-  document.getElementById("count").innerText = "Số lượng: " + count;
-
-  let txt = "";
-  for(let k in staffStats){
-    txt += k + ":" + staffStats[k] + " ";
-  }
-  document.getElementById("staffCount").innerText = "NV: " + txt;
+// ===== UI =====
+function update(){
+  document.getElementById("count").innerText = "SL: "+count;
 }
 
-function resetAll(){
-  lastMasp = "";
-  count = 0;
+// ===== RESET =====
+function ok(msg){ log(msg,"ok"); }
+function err(msg){ log("❌ "+msg,"err"); }
 
-  document.getElementById("status").innerText = "Chưa có MSP";
-
-  updateUI();
-
-  logMsg("🔄 Đổi đơn");
-}
-
-function success(msg){
-  logMsg(msg);
-  okSound.play();
-  navigator.vibrate(100);
-}
-
-function error(msg){
-  logMsg("❌ " + msg, "err");
-  errSound.play();
-}
-
-let html5QrCode;
-
-function startCamera(){
-  html5QrCode = new Html5Qrcode("reader");
-
-  Html5Qrcode.getCameras().then(devices => {
-    if(devices.length){
-      html5QrCode.start(
-        devices[devices.length - 1].id,
-        { fps: 10, qrbox: 250 },
-        text => handleScan(text)
-      );
-    }
-  });
-}
-
-function stopCamera(){
-  if(html5QrCode){
-    html5QrCode.stop();
-  }
-}
-
+// ===== AUTO FOCUS =====
 setInterval(()=>{
-  document.getElementById("scanInput").focus();
-}, 500);
+  document.getElementById("scan").focus();
+},300);
 
 </script>
 
