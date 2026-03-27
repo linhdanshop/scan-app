@@ -1,10 +1,54 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TEST CHUẨN</title>
+
+<style>
+body { font-family: Arial; max-width:500px; margin:auto; padding:10px; background:#f5f5f5; }
+
+input {
+  width:100%;
+  padding:16px;
+  font-size:20px;
+  margin:6px 0;
+  border-radius:10px;
+  border:1px solid #ccc;
+}
+
+.status {
+  background:#fff;
+  padding:10px;
+  border-radius:10px;
+  margin-top:5px;
+}
+
+#log { margin-top:10px; }
+.ok { color:green; }
+.err { color:red; }
+</style>
+</head>
+
+<body>
+
+<h2>📦 TEST CHUẨN</h2>
+
+<input id="gia" placeholder="Nhập giá">
+
+<div class="status" id="status">Chưa có MSP</div>
+
+<input id="scanInput" placeholder="Nhập MSP hoặc SĐT rồi Enter">
+
+<div class="status" id="count">Số lượng: 0</div>
+
+<div id="log"></div>
+
 <script>
 
 let gia = 0;
 let masp = "";
 let count = 0;
-
-let processing = false;
+let lock = false;
 
 // ===== CHECK =====
 function isPhone(t){ return /^\d{10}$/.test(t); }
@@ -16,7 +60,7 @@ function log(msg, cls="ok"){
   el.innerHTML = `<div class="${cls}">${msg}</div>` + el.innerHTML;
 }
 
-// ===== GIÁ =====
+// ===== NHẬP GIÁ =====
 document.getElementById("gia").addEventListener("change", e=>{
   let v = e.target.value.trim();
   if(/^\d+$/.test(v)){
@@ -24,26 +68,24 @@ document.getElementById("gia").addEventListener("change", e=>{
     masp = "";
     count = 0;
     update();
-    log("💰 OK → quét MSP");
+    log("💰 Nhập giá OK → quét MSP");
   }
 });
 
-// ===== NHẬP =====
+// ===== NHẬP DỮ LIỆU =====
 document.getElementById("scanInput").addEventListener("keydown", e=>{
 
   if(e.key !== "Enter") return;
 
-  if(processing) return; // 🔥 CHỐNG LOẠN
-  processing = true;
+  if(lock) return; // chống double
+  lock = true;
 
   let text = e.target.value.trim();
   e.target.value = "";
 
   handle(text);
 
-  setTimeout(()=>{
-    processing = false;
-  }, 200); // khóa 200ms
+  setTimeout(()=> lock = false, 150);
 });
 
 // ===== XỬ LÝ =====
@@ -52,32 +94,39 @@ function handle(text){
   if(!text) return;
 
   if(!gia){
-    return log("❌ Nhập giá trước","err");
+    log("❌ Nhập giá trước","err");
+    return;
   }
 
-  // MSP
+  // chưa có MSP
   if(!masp){
+
     if(isMSP(text)){
       masp = text;
-      document.getElementById("status").innerText = "MSP: "+masp;
-      return log("📦 "+masp);
+      document.getElementById("status").innerText = "MSP: " + masp;
+      log("📦 " + masp);
+      return;
     }
 
     if(isPhone(text)){
-      return log("❌ Quét MSP trước","err");
+      log("❌ Phải nhập MSP trước","err");
+      return;
     }
   }
 
-  // SĐT
+  // đã có MSP → nhận SĐT
   if(masp){
+
     if(isPhone(text)){
       count++;
       update();
-      return log(`✔ ${masp} | ${text}`);
+      log("✔ " + masp + " | " + text);
+      return;
     }
 
     if(isMSP(text)){
-      return log("❌ Đang quét SĐT","err");
+      log("❌ Đang quét SĐT, không phải MSP","err");
+      return;
     }
   }
 
@@ -86,7 +135,15 @@ function handle(text){
 
 // ===== UI =====
 function update(){
-  document.getElementById("count").innerText = "Số lượng: "+count;
+  document.getElementById("count").innerText = "Số lượng: " + count;
 }
 
+// auto focus
+setInterval(()=>{
+  document.getElementById("scanInput").focus();
+}, 500);
+
 </script>
+
+</body>
+</html>
