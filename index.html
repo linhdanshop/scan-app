@@ -2,55 +2,95 @@
 <html>
 <head>
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>SCAN FIX</title>
+<title>QUÉT ĐƠN PRO</title>
+
+<script src="https://unpkg.com/html5-qrcode"></script>
 
 <style>
-body { font-family: Arial; max-width:500px; margin:auto; padding:10px; background:#f5f5f5; }
+body { margin:0; font-family:Arial; background:#f2f2f2; }
+.container { max-width:500px; margin:auto; padding:10px; }
+
+h2 { text-align:center; }
 
 input {
   width:100%;
-  padding:16px;
+  padding:18px;
   font-size:20px;
   margin:6px 0;
-  border-radius:10px;
+  border-radius:12px;
   border:1px solid #ccc;
 }
 
-.status {
-  background:#fff;
-  padding:10px;
-  border-radius:10px;
-  margin-top:5px;
+button {
+  width:100%;
+  padding:16px;
+  font-size:18px;
+  border:none;
+  border-radius:12px;
+  margin:5px 0;
+  color:white;
 }
 
-#log { margin-top:10px; }
+.btn-blue { background:#007bff; }
+.btn-red { background:#e53935; }
+
+.status {
+  background:white;
+  padding:12px;
+  border-radius:12px;
+  margin-top:5px;
+  font-size:18px;
+}
+
+#log {
+  margin-top:10px;
+  max-height:200px;
+  overflow:auto;
+  font-size:16px;
+}
+
 .ok { color:green; }
 .err { color:red; }
+.warn { color:orange; }
+
+.highlight {
+  background:#fff3cd;
+}
 </style>
 </head>
 
 <body>
 
-<h2>📦 SCAN FIX</h2>
+<div class="container">
 
-<input id="gia" placeholder="Nhập giá rồi Enter">
+<h2>📦 QUÉT ĐƠN PRO</h2>
+
+<input id="gia" placeholder="Nhập giá (vd 157)">
 
 <div class="status" id="status">Chưa có MSP</div>
 
-<input id="scanInput" placeholder="Nhập MSP hoặc SĐT rồi Enter">
+<input id="scanInput" placeholder="Quét MSP hoặc SĐT">
+
+<button class="btn-blue" onclick="startCam()">📷 Mở camera</button>
+<button class="btn-red" onclick="stopCam()">⛔ Tắt camera</button>
+
+<div id="reader"></div>
 
 <div class="status" id="count">Số lượng: 0</div>
 
 <div id="log"></div>
 
+</div>
+
 <script>
 
-window.onload = function(){
-
-let gia = 0;
+let gia = "";
 let masp = "";
 let count = 0;
 let lock = false;
+
+const okSound = new Audio("https://actions.google.com/sounds/v1/cartoon/wood_plank_flicks.ogg");
+const errSound = new Audio("https://actions.google.com/sounds/v1/alarms/beep_short.ogg");
 
 // ===== CHECK =====
 function isPhone(t){ return /^\d{10}$/.test(t); }
@@ -63,86 +103,90 @@ function log(msg, cls="ok"){
 }
 
 // ===== GIÁ =====
-document.getElementById("gia").addEventListener("keydown", function(e){
-
-  if(e.key !== "Enter") return;
-
-  let v = this.value.trim();
-
-  if(!/^\d+$/.test(v)){
-    log("❌ Giá sai","err");
-    return;
-  }
-
-  gia = parseInt(v) * 1000;
-  masp = "";
-  count = 0;
-
-  document.getElementById("status").innerText = "Chưa có MSP";
-
-  log("💰 Giá OK → quét MSP");
-  update();
+document.getElementById("gia").addEventListener("input", e=>{
+  gia = e.target.value.trim();
 });
 
-// ===== SCAN =====
-document.getElementById("scanInput").addEventListener("keydown", function(e){
+// ===== SCAN INPUT =====
+document.getElementById("scanInput").addEventListener("keydown", e=>{
 
   if(e.key !== "Enter") return;
-
   if(lock) return;
+
   lock = true;
 
-  let text = this.value.trim();
-  this.value = "";
+  let text = e.target.value.trim();
+  e.target.value = "";
 
-  handle(text);
+  processScan(text);
 
-  setTimeout(function(){
-    lock = false;
-  }, 150);
+  setTimeout(()=> lock=false, 150);
 });
 
 // ===== XỬ LÝ =====
-function handle(text){
+function processScan(text){
 
   if(!text) return;
 
-  if(!gia){
-    log("❌ Nhập giá trước","err");
-    return;
-  }
+  // ===== MSP =====
+  if(isMSP(text)){
 
-  if(!masp){
+    // MSP mới khác MSP cũ
+    if(masp && text !== masp){
+      masp = text;
+      gia = ""; // reset giá
+      document.getElementById("gia").value = "";
 
-    if(isMSP(text)){
+      document.getElementById("status").innerText = "MSP: " + masp;
+      log("📦 MSP mới → nhập lại giá", "warn");
+      errSound.play();
+      return;
+    }
+
+    // MSP đầu tiên
+    if(!masp){
+      if(!gia){
+        log("❌ Nhập giá trước","err");
+        errSound.play();
+        return;
+      }
+
       masp = text;
       document.getElementById("status").innerText = "MSP: " + masp;
       log("📦 " + masp);
+      okSound.play();
       return;
     }
 
-    if(isPhone(text)){
-      log("❌ Phải quét MSP trước","err");
-      return;
-    }
+    return;
   }
 
-  if(masp){
+  // ===== SĐT =====
+  if(isPhone(text)){
 
-    if(isPhone(text)){
-      count++;
-      update();
-      log("✔ " + masp + " | " + text);
+    if(!masp){
+      log("❌ Quét MSP trước","err");
+      errSound.play();
       return;
     }
 
-    if(isMSP(text)){
-      log("❌ Đang quét SĐT","err");
+    if(!gia){
+      log("❌ Thiếu giá","err");
+      errSound.play();
       return;
     }
+
+    count++;
+    update();
+
+    log(`✔ ${masp} | ${text} | ${gia}000`);
+    okSound.play();
+
+    return;
   }
 
   log("❌ Sai dữ liệu","err");
+  errSound.play();
 }
 
 // ===== UI =====
@@ -150,7 +194,26 @@ function update(){
   document.getElementById("count").innerText = "Số lượng: " + count;
 }
 
-};
+// ===== CAMERA =====
+let cam;
+
+function startCam(){
+  cam = new Html5Qrcode("reader");
+
+  Html5Qrcode.getCameras().then(devices=>{
+    if(devices.length){
+      cam.start(
+        devices[devices.length-1].id,
+        { fps:10, qrbox:250 },
+        text => processScan(text) // 🔥 giống Enter
+      );
+    }
+  });
+}
+
+function stopCam(){
+  if(cam) cam.stop();
+}
 
 </script>
 
