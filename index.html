@@ -3,59 +3,66 @@
 <html>
 <head>
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Quét đơn PRO</title>
+<title>Scan PRO</title>
 
 <style>
-body { margin:0; background:#f5f5f5; font-family:Arial; }
-.container { max-width:500px; margin:auto; padding:10px; }
+body {
+  margin:0;
+  background:#f2f2f2;
+  font-family:Arial;
+}
+.box {
+  max-width:480px;
+  margin:auto;
+  padding:12px;
+}
+
+h2 {
+  text-align:center;
+}
 
 input {
-  width:100%; padding:16px; margin:6px 0;
-  font-size:20px; border-radius:10px; border:1px solid #ccc;
+  width:100%;
+  padding:18px;
+  margin:6px 0;
+  font-size:22px;
+  border-radius:12px;
+  border:1px solid #ccc;
 }
-
-button {
-  width:100%; padding:16px; margin:6px 0;
-  font-size:20px; border:none; border-radius:12px;
-  color:#fff;
-}
-
-.btn-blue { background:#007bff; }
-.btn-red { background:red; }
 
 .status {
-  background:#fff; padding:10px; border-radius:10px;
-  font-size:18px; margin-top:5px;
+  background:#fff;
+  padding:12px;
+  border-radius:10px;
+  font-size:18px;
+  margin-top:6px;
 }
 
 #log {
-  max-height:220px;
-  overflow:auto;
-  font-size:16px;
   margin-top:10px;
+  max-height:200px;
+  overflow:auto;
 }
 
-.ok { color:green; }
-.err { color:red; }
+.ok{color:green;}
+.err{color:red;}
 </style>
 
 </head>
 
 <body>
 
-<div class="container">
+<div class="box">
 
 <h2>📦 QUÉT ĐƠN</h2>
 
-<!-- LOGIN -->
-
-<input id="manv" placeholder="Nhập mã nhân viên">
+<input id="manv" placeholder="Mã nhân viên">
 
 <input id="gia" placeholder="Nhập giá">
 
 <div class="status" id="status">Chưa có MSP</div>
 
-<input id="scanInput" placeholder="Quét tại đây..." autofocus>
+<input id="scan" placeholder="Quét tại đây..." autofocus>
 
 <div class="status" id="count">Số lượng: 0</div>
 
@@ -65,135 +72,108 @@ button {
 
 <script>
 
-// ===== API =====
-const API = "https://script.google.com/macros/s/XXX/exec";
-
-// ===== NHÂN VIÊN =====
-const USERS = {
-  "111": "Nhung",
-  "222": "Hieu"
-};
+// ===== CONFIG =====
+const API = "DAN_LINK_API";
+const USERS = { "111":"Nhung", "222":"Hieu" };
 
 // ===== LOAD NV =====
-let currentNV = localStorage.getItem("nv") || "";
-if(currentNV){
-  document.getElementById("manv").value = currentNV;
-}
+let saved = localStorage.getItem("nv");
+if(saved) document.getElementById("manv").value = saved;
 
-// ===== BIẾN =====
-let lastGia = 0;
-let lastMasp = "";
+// ===== STATE =====
+let gia = 0;
+let masp = "";
 let count = 0;
 
-let lastScan = "";
-let lastTime = 0;
-
-// ===== VOICE =====
-function speak(text){
-  let msg = new SpeechSynthesisUtterance(text);
-  msg.lang = "vi-VN";
-  speechSynthesis.speak(msg);
-}
+// chống loạn
+let buffer = "";
+let timer = null;
 
 // ===== CHECK =====
-function isPhone(t){ return /^\d{10}$/.test(t); }
-function isMSP(t){ return /[A-Za-z]/.test(t) && /\d/.test(t); }
+const isPhone = t => /^\d{10}$/.test(t);
+const isMSP = t => /[A-Za-z]/.test(t) && /\d/.test(t);
 
 // ===== LOG =====
 function log(msg, cls="ok"){
-  const el = document.getElementById("log");
+  let el = document.getElementById("log");
   el.innerHTML = `<div class="${cls}">${msg}</div>` + el.innerHTML;
-  if(el.children.length > 15) el.removeChild(el.lastChild);
+  if(el.children.length > 12) el.removeChild(el.lastChild);
 }
 
 // ===== GIÁ =====
-document.getElementById("gia").addEventListener("input", e=>{
+document.getElementById("gia").oninput = e=>{
   let v = e.target.value.trim();
   if(/^\d+$/.test(v)){
-    lastGia = parseInt(v)*1000;
-    lastMasp = "";
+    gia = parseInt(v)*1000;
+    masp = "";
     count = 0;
     update();
     log("💰 Nhập giá → quét MSP");
   }
-});
+};
 
 // ===== QUÉT =====
-document.getElementById("scanInput").addEventListener("keydown", e=>{
-  if(e.key !== "Enter") return;
+document.getElementById("scan").addEventListener("input", e=>{
 
-  let text = e.target.value.trim();
-  e.target.value = "";
+  buffer = e.target.value;
 
-  // ===== CHỐNG LOẠN =====
-  let now = Date.now();
+  clearTimeout(timer);
 
-  if(text === lastScan && now - lastTime < 500){
-    return; // bỏ scan trùng
-  }
-
-  lastScan = text;
-  lastTime = now;
-
-  if(!text) return;
-
-  handleScan(text);
+  timer = setTimeout(()=>{
+    processScan(buffer.trim());
+    e.target.value = "";
+    buffer = "";
+  }, 80); // cực quan trọng
 });
 
-function handleScan(text){
+function processScan(text){
+
+  if(!text) return;
 
   let manv = document.getElementById("manv").value.trim();
   let nv = USERS[manv];
 
   if(!nv){
-    log("❌ Mã NV sai","err");
-    speak("Sai mã nhân viên");
-    return;
+    return log("❌ Sai mã NV","err");
   }
 
-  // lưu lại
   localStorage.setItem("nv", manv);
 
-  if(!lastGia){
-    log("❌ Nhập giá trước","err");
-    speak("Nhập giá trước");
-    return;
+  if(!gia){
+    return log("❌ Nhập giá trước","err");
   }
 
   // ===== MSP =====
-  if(!lastMasp){
+  if(!masp){
 
     if(isMSP(text)){
-      lastMasp = text;
-      document.getElementById("status").innerText = "MSP: "+lastMasp;
-      log("📦 "+lastMasp);
-      return;
+      masp = text;
+      document.getElementById("status").innerText = "MSP: "+masp;
+      return log("📦 "+masp);
     }
 
     if(isPhone(text)){
-      log("❌ Quét MSP trước","err");
-      speak("Quét mã sản phẩm trước");
-      return;
+      return log("❌ Quét MSP trước","err");
     }
   }
 
   // ===== SĐT =====
-  if(lastMasp){
+  if(masp){
 
     if(isPhone(text)){
       count++;
       update();
 
-      log(`✔ ${lastMasp} | ${text}`);
+      log(`✔ ${masp} | ${text}`);
 
       fetch(API,{
         method:"POST",
         body:JSON.stringify({
           id:Date.now(),
           nhanvien:nv,
-          masp:lastMasp,
+          masp,
           sdt:text,
-          gia:lastGia
+          gia
         })
       });
 
@@ -201,9 +181,7 @@ function handleScan(text){
     }
 
     if(isMSP(text)){
-      log("❌ Đang quét SĐT","err");
-      speak("Đang quét số điện thoại");
-      return;
+      return log("❌ Đang quét SĐT","err");
     }
   }
 
@@ -217,7 +195,7 @@ function update(){
 
 // ===== AUTO FOCUS =====
 setInterval(()=>{
-  document.getElementById("scanInput").focus();
+  document.getElementById("scan").focus();
 },300);
 
 </script>
